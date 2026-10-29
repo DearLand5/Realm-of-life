@@ -71,9 +71,9 @@ void fragment() {
 	col = mix(col, sand_col, sand * step(-0.3, shore) * (1.0 - 0.45 * lake_shore));
 
 	// Exposed rock on slopes and rocky biomes (triplanar, layered strata).
-	float rock = smoothstep(0.27, 0.5, slope + (rock_n - 0.5) * 0.2 + v_data.w * 0.16);
+	float rock = smoothstep(0.3, 0.52, slope + (rock_n - 0.5) * 0.2 + v_data.w * 0.16);
 	float strata = mix(0.5, sin(v_world.y * 1.3 + rock_n * 5.0) * 0.5 + 0.5, near);
-	vec3 rock_col = mix(vec3(0.40, 0.37, 0.33), vec3(0.60, 0.56, 0.50), rock_n);
+	vec3 rock_col = mix(vec3(0.33, 0.30, 0.27), vec3(0.50, 0.46, 0.41), rock_n);
 	rock_col *= 0.9 + 0.1 * strata + 0.12 * (rl_triplanar(v_world, wn, 2.1) - 0.5) * near;
 	// Lichen/moss on gentler rock in wet places.
 	rock_col = mix(rock_col, vec3(0.36, 0.40, 0.26), smoothstep(0.55, 0.9, moist) * (1.0 - smoothstep(0.3, 0.6, slope)) * 0.5);

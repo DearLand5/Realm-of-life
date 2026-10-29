@@ -41,7 +41,8 @@ static func sample_float(table: Array[float], elev: float) -> float:
 
 ## Mixes a clear-sky colour toward overcast grey/fog haze of similar brightness.
 static func overcast(c: Color, cloud: float, fog: float, daylight: float) -> Color:
-	var grey_level := lerpf(0.05, 0.62, daylight)
+	# Thick cloud is darker underneath.
+	var grey_level := lerpf(0.05, 0.62, daylight) * (1.0 - 0.32 * cloud * cloud)
 	var grey := Color(grey_level * 0.94, grey_level * 0.98, grey_level * 1.04)
 	var out := c.lerp(grey, clampf(pow(cloud, 1.6) * 0.85, 0.0, 1.0))
 	var haze := Color(grey_level * 1.02, grey_level * 1.04, grey_level * 1.06)

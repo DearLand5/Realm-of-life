@@ -36,7 +36,7 @@ static func build_chunk(w: WorldData, x0: int, z0: int, cells: int) -> ArrayMesh
 	for jz in nz:
 		for jx in nx:
 			var i := zs[jz] * w.res + xs[jx]
-			var level := w.water_surface[i] if _open(w, i) else w.shore_level[i]
+			var level := w.water_surface[i] if _open(w, i) else _neighbor_level(w, xs[jx], zs[jz])
 			verts.append(Vector3(-half + float(xs[jx]) * w.cell, level, -half + float(zs[jz]) * w.cell))
 			uv2.append(Vector2(level - w.heights[i], 0.0))
 			near.append(1 if _open_near(w, xs[jx], zs[jz]) else 0)
@@ -137,6 +137,24 @@ static func _quad_up(idx: PackedInt32Array, v: PackedVector3Array, a: int, b: in
 			idx.append_array([i0, i1, i2])
 		else:
 			idx.append_array([i0, i2, i1])
+
+
+## Surface of the nearest open water (ocean/lake) around a shore sample.
+static func _neighbor_level(w: WorldData, ix: int, iz: int) -> float:
+	var best := w.sea_level
+	var best_d := 99
+	for dz in range(-2, 3):
+		for dx in range(-2, 3):
+			var x := ix + dx
+			var z := iz + dz
+			if x < 0 or z < 0 or x >= w.res or z >= w.res:
+				continue
+			var j := z * w.res + x
+			var d := absi(dx) + absi(dz)
+			if _open(w, j) and d < best_d:
+				best_d = d
+				best = w.water_surface[j]
+	return best
 
 
 static func _open(w: WorldData, i: int) -> bool:

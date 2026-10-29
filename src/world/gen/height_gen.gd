@@ -23,7 +23,7 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	var hill_oct := 3 + int(round(relief * 2.0))
 	var n_hill := _noise(seed_value + 23, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / 75.0, hill_oct, FastNoiseLite.FRACTAL_FBM)
 	n_hill.fractal_gain = 0.42 + relief * 0.16
-	var n_ridge := _noise(seed_value + 37, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.27), 5, FastNoiseLite.FRACTAL_RIDGED)
+	var n_ridge := _noise(seed_value + 37, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.33), 5, FastNoiseLite.FRACTAL_RIDGED)
 	n_ridge.fractal_gain = 0.45
 	n_ridge.domain_warp_enabled = true
 	n_ridge.domain_warp_amplitude = size * 0.05
@@ -37,8 +37,8 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	var n_rdet := _noise(seed_value + 89, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / 38.0, 3, FastNoiseLite.FRACTAL_RIDGED)
 	var n_edge := _noise(seed_value + 79, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.3), 3, FastNoiseLite.FRACTAL_FBM)
 
-	var hill_amp := 4.0 + 11.0 * relief
-	var ridge_amp := max_h * mountains * 0.9
+	var hill_amp := 4.0 + 9.0 * relief
+	var ridge_amp := max_h * mountains * 0.85
 	var valley_amp := 3.0 + 9.0 * relief
 	var detail_amp := 0.25 + 0.9 * relief
 	var mask_bias := lerpf(-0.5, 0.12, mountains)

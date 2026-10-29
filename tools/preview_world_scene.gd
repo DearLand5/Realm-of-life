@@ -8,6 +8,7 @@ var day_night: DayNightCycle
 var terrain: TerrainRenderer
 var water: WaterRenderer
 var flora: FloraRenderer
+var weather: WeatherSystem
 var plants: Array[PlantSpecies] = []
 var cam: Camera3D
 var spots: Dictionary = {}
@@ -39,9 +40,16 @@ func _build_scene() -> void:
 	root.add_child(time)
 	time.setup(climate, 12.0)
 	time.paused = true
+	cam = Camera3D.new()
+	cam.far = 3000.0
+	cam.fov = 60.0
+	root.add_child(cam)
+	weather = WeatherSystem.new()
+	root.add_child(weather)
+	weather.setup(climate, world, time, cam, int(world.config["seed"]))
 	day_night = DayNightCycle.new()
 	root.add_child(day_night)
-	day_night.setup(climate, null, time)
+	day_night.setup(climate, weather, time)
 	if OS.get_environment("PREVIEW_NO_SHADOWS") != "":
 		day_night.sun.shadow_enabled = false
 	var t0 := Time.get_ticks_msec()
@@ -54,6 +62,7 @@ func _build_scene() -> void:
 	root.add_child(water)
 	water.setup(world, climate)
 	print("water setup: %d ms" % (Time.get_ticks_msec() - t0))
+	water.visible = OS.get_environment("PREVIEW_NO_WATER") == ""
 	t0 = Time.get_ticks_msec()
 	plants = FloraSystem.generate_species(world, Rng.new(int(world.config["seed"]) * 31 + 7))
 	for sp in plants:
@@ -62,10 +71,6 @@ func _build_scene() -> void:
 	root.add_child(flora)
 	flora.setup(world, plants, Callable(), 8.0, climate)
 	print("flora setup: %d ms" % (Time.get_ticks_msec() - t0))
-	cam = Camera3D.new()
-	cam.far = 3000.0
-	cam.fov = 60.0
-	root.add_child(cam)
 
 
 ## Picks interesting viewpoints from the generated world.
@@ -89,6 +94,8 @@ func _find_spots() -> void:
 					_keep(best, "beach", 1.0 / (1.0 + absf(p.z) * 0.01), p)
 				Biomes.MOUNTAIN, Biomes.SNOW:
 					_keep(best, "mountain", p.y, p)
+				Biomes.TAIGA, Biomes.TUNDRA:
+					_keep(best, "north", -p.z * 0.01 + 1.0 / (1.0 + absf(near_water - 20.0) * 0.1), p)
 	spots = best
 	print("spots: ", spots)
 
@@ -137,6 +144,10 @@ func _shots(set_name: String) -> Array:
 		_eye_view("beach", _spot("beach", Vector3.ZERO), 2.5, 15.0),
 		_eye_view("mountain", _spot("mountain", Vector3.ZERO), 3.0, 11.0),
 		{"name": "dawn", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "sun": 3.0},
+		_eye_view("rain", _spot("ground", Vector3.ZERO), 1.8, 14.0, {"weather": &"rain", "wetness": 0.9}),
+		_eye_view("snow", _spot("north", Vector3.ZERO), 2.2, 11.0, {"weather": &"snow", "season": 3, "snow_cover": 0.9}),
+		_eye_view("fog", _spot("ground", Vector3.ZERO), 2.0, 7.5, {"weather": &"fog", "season": 2}),
+		{"name": "storm", "pos": Vector3(half * 0.5, 45, half * 0.7), "target": Vector3(0, 0, 0), "hour": 16.0, "weather": &"storm", "wetness": 1.0},
 		{"name": "noon", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "hour": 12.5},
 		{"name": "sunset", "pos": Vector3(-half * 0.6, 60, half * 0.4), "target": Vector3(0, 0, -half * 0.2), "sun": -2.0},
 		{"name": "night", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "hour": 23.0},
@@ -144,7 +155,8 @@ func _shots(set_name: String) -> Array:
 	var out := []
 	for s in all:
 		if set_name == "all" or s["name"] == set_name \
-				or (set_name == "times" and s["name"] in ["dawn", "noon", "sunset", "night"]):
+				or (set_name == "times" and s["name"] in ["dawn", "noon", "sunset", "night"]) \
+				or (set_name == "weather" and s["name"] in ["rain", "snow", "fog", "storm"]):
 			out.append(s)
 	return out
 
@@ -157,6 +169,11 @@ func _render(shot: Dictionary, out_dir: String) -> void:
 		var e: float = shot["sun"]
 		hour = SunModel.hour_for_elevation(absf(e), climate.year_phase + 0.03, time.latitude, e > 0.0)
 	time.set_hour(hour)
+	var forced := OS.get_environment("PREVIEW_WEATHER")
+	weather.force_weather(StringName(forced) if forced != "" else shot.get("weather", &"clear"), true)
+	climate.snow_cover = float(shot.get("snow_cover", 0.0))
+	climate.wetness = float(shot.get("wetness", 0.0))
+	climate.drought = float(shot.get("drought", 0.0))
 	var pos: Vector3 = shot["pos"]
 	var target: Vector3 = shot["target"]
 	cam.look_at_from_position(pos, target)
@@ -168,7 +185,28 @@ func _render(shot: Dictionary, out_dir: String) -> void:
 	flora.refresh_all()
 	print("%s: flora %d instances, %d draws (%d ms), terrain %d tris" % [shot["name"], flora.instance_count(), flora.draw_calls(), Time.get_ticks_msec() - t0, terrain.triangle_count()])
 	day_night.update_now()
+	if weather.fx != null:
+		weather.fx.lightning_enabled = false
+		weather.focus = pos
+		weather.fx.update_fx(0.016)
+		weather.fx.prewarm()
 	for f in 3:
 		await get_tree().process_frame
+	if OS.get_environment("PREVIEW_PROBE") != "":
+		for px in [Vector2(150, 600), Vector2(300, 560), Vector2(1000, 600), Vector2(200, 300)]:
+			var hit := terrain.pick_ray(cam.project_ray_origin(px), cam.project_ray_normal(px))
+			if hit == Vector3.INF:
+				continue
+			var a := terrain.get_attributes()
+			var g := world.world_to_grid(hit.x, hit.z)
+			var i := world.index(int(round(g.x)), int(round(g.y)))
+			var lakes_near := 0
+			for dz in range(-6, 7):
+				for dx in range(-6, 7):
+					var j := world.index(int(round(g.x)) + dx, int(round(g.y)) + dz)
+					if world.water[j] == WorldData.Water.LAKE:
+						lakes_near += 1
+			print("  lake cells within 12 m: ", lakes_near, " water type here ", world.water[i], " surface ", world.water_surface[i], " h ", world.heights[i])
+			print("probe ", px, " hit ", hit, " biome ", Biomes.label(world.biome[i]), " T ", world.temperature[i], " M ", world.moisture[i], " col ", a.colors[i], " shore ", a.shore[i], " rock ", a.rock[i], " n ", a.normals[i])
 	var path := ProjectSettings.globalize_path(out_dir.path_join("world_%s.png" % shot["name"]))
 	await ShotUtil.save_viewport(get_viewport(), path)

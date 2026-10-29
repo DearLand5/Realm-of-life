@@ -17,13 +17,13 @@ const GROUND: Array[Color] = [
 	Color(0.30, 0.33, 0.21),  # TAIGA
 	Color(0.47, 0.47, 0.35),  # TUNDRA
 	Color(0.27, 0.32, 0.16),  # SWAMP
-	Color(0.47, 0.47, 0.38),  # MOUNTAIN (alpine meadow; rock comes from slope)
+	Color(0.38, 0.40, 0.27),  # MOUNTAIN (alpine meadow; rock comes from slope)
 	Color(0.90, 0.92, 0.96),  # SNOW
 	Color(0.38, 0.36, 0.28),  # LAKE bed
 	Color(0.44, 0.41, 0.33),  # RIVER bed
 ]
 ## How much of the ground is grass (seasonal/drought tint applies to it).
-const GRASS: Array[float] = [0.0, 0.0, 0.05, 1.0, 1.0, 0.75, 0.65, 0.55, 0.6, 0.8, 0.15, 0.0, 0.0, 0.0]
+const GRASS: Array[float] = [0.0, 0.0, 0.05, 1.0, 1.0, 0.75, 0.65, 0.55, 0.6, 0.8, 0.5, 0.0, 0.0, 0.0]
 ## Exposed rock tendency independent of slope.
 const ROCK: Array[float] = [0.0, 0.0, 0.08, 0.0, 0.0, 0.0, 0.0, 0.05, 0.12, 0.0, 0.4, 0.1, 0.0, 0.1]
 const FAR_SHORE := 50.0
@@ -70,8 +70,9 @@ static func build(w: WorldData) -> TerrainAttributes:
 			if b == Biomes.OCEAN:
 				col = Color(0.74, 0.68, 0.5).lerp(GROUND[Biomes.OCEAN], clampf(depth / 8.0, 0.0, 1.0))
 			a.shore[i] = -depth
-		elif has_dist and w.water_dist[i] < FAR_SHORE:
-			a.shore[i] = w.heights[i] - w.shore_level[i]
+		elif has_dist and w.water_dist[i] < FAR_SHORE and w.heights[i] - w.shore_level[i] > -0.3:
+			# Land sits above its water; land below a higher stream is not its shore.
+			a.shore[i] = maxf(w.heights[i] - w.shore_level[i], 0.0)
 		else:
 			a.shore[i] = FAR_SHORE
 		cr[i] = col.r
