@@ -65,7 +65,6 @@ func _ready() -> void:
 			b.button_group = _group
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.alignment = HORIZONTAL_ALIGNMENT_CENTER
-			b.clip_text = true
 			var id: Variant = it.get("id")
 			b.set_meta(&"id", id)
 			b.pressed.connect(func() -> void: _choose(id))

@@ -49,7 +49,7 @@ static func _col() -> VBoxContainer:
 	return v
 
 
-## Widget gallery (designed for a 1600×1000 canvas).
+## Widget gallery (designed for a 1600×1080 canvas).
 static func build_widgets() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -63,16 +63,38 @@ static func build_widgets() -> Control:
 	for side in ["left", "top", "right", "bottom"]:
 		UITheme.override_const(m, "margin_" + side, 20)
 	root.add_child(m)
+	var page := VBoxContainer.new()
+	UITheme.override_const(page, "separation", 16)
+	m.add_child(page)
+	var head := HBoxContainer.new()
+	head.custom_minimum_size.y = 84
+	UITheme.override_const(head, "separation", 14)
+	page.add_child(head)
+	var hv := VBoxContainer.new()
+	hv.alignment = BoxContainer.ALIGNMENT_BEGIN
+	head.add_child(hv)
+	var ht := Label.new()
+	ht.theme_type_variation = &"TitleLabel"
+	ht.text = "Realm of Life · UI kit"
+	hv.add_child(ht)
+	var hs := Label.new()
+	hs.theme_type_variation = &"DimLabel"
+	hs.text = "Тема · иконки · виджеты · графики · ввод"
+	hv.add_child(hs)
 	var cols := HBoxContainer.new()
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	UITheme.override_const(cols, "separation", 16)
-	m.add_child(cols)
+	page.add_child(cols)
 	var c1 := _col()
 	var c2 := _col()
 	var c3 := _col()
 	var c4 := _col()
 	for c in [c1, c2, c3, c4]:
 		cols.add_child(c)
-	c3.size_flags_stretch_ratio = 1.25
+	c1.size_flags_stretch_ratio = 0.95
+	c2.size_flags_stretch_ratio = 1.0
+	c3.size_flags_stretch_ratio = 1.2
+	c4.size_flags_stretch_ratio = 0.95
 	# --- Buttons
 	var btn := _card("Кнопки", &"pointer")
 	var v := btn.content
@@ -172,13 +194,13 @@ static func build_widgets() -> Control:
 	c4.add_child(cc)
 	var lst := _card("Библиотека", &"library")
 	var sl := SearchList.new()
-	sl.custom_minimum_size = Vector2(0, 200)
+	sl.custom_minimum_size = Vector2(0, 196)
 	sl.show_search = false
 	var items := []
-	for e in sample_species().slice(0, 3):
+	for e in sample_species().slice(1, 3):
 		items.append({"id": e["uid"], "title": e["name"], "subtitle": e["description"], "icon": &"paw", "favorite": e["favorite"]})
 	sl.set_items(items)
-	sl.selected_id = "a2"
+	sl.select("a2")
 	lst.content.add_child(sl)
 	c4.add_child(lst)
 	var touch := _card("Сенсорное управление", &"pointer")
@@ -194,7 +216,7 @@ static func build_widgets() -> Control:
 	bcol.alignment = BoxContainer.ALIGNMENT_CENTER
 	var brow := HBoxContainer.new()
 	UITheme.override_const(brow, "separation", 10)
-	for def in [[&"jump", "Прыжок"], [&"claw", ""], [&"leaf", ""], [&"bird", ""]]:
+	for def in [[&"jump", "Прыжок"], [&"claw", ""], [&"bird", ""]]:
 		var tb := TouchButton.make(def[0], &"", def[1])
 		tb.custom_minimum_size = Vector2(76, 76) if def[1] != "" else Vector2(60, 60)
 		tb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -205,12 +227,16 @@ static func build_widgets() -> Control:
 	bcol.add_child(brow)
 	trow.add_child(bcol)
 	touch.content.add_child(trow)
-	c1.add_child(touch)
+	c2.add_child(touch)
 	return root
 
 
 ## Called after the first layout pass: puts interactive widgets in a "live" state.
 static func after_layout(root: Node) -> void:
+	var lc := root.find_child("Line", true, false) as LineChart
+	if lc != null:
+		lc.scrub_index = 74
+		lc.queue_redraw()
 	var joy := root.find_child("Joy", true, false) as TouchJoystick
 	if joy != null:
 		var press := InputEventScreenTouch.new()

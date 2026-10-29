@@ -40,8 +40,9 @@ func _rebuild_box() -> void:
 	_box = VBoxContainer.new() if vertical else HBoxContainer.new()
 	_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if vertical else ScrollContainer.SCROLL_MODE_AUTO
-	vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if vertical else ScrollContainer.SCROLL_MODE_DISABLED
+	# Scrollable by dragging, but without a scrollbar under the tabs.
+	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if vertical else ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if vertical else ScrollContainer.SCROLL_MODE_DISABLED
 	if old != null:
 		for b in old.get_children():
 			old.remove_child(b)

@@ -99,6 +99,12 @@ func _update_star() -> void:
 		_star.icon_name = &"star_filled" if _star.button_pressed else &"star"
 		_star.add_theme_color_override("icon_pressed_color", UITheme.color(self, &"highlight"))
 		_star.add_theme_color_override("icon_hover_pressed_color", UITheme.color(self, &"highlight"))
+		# The filled star is the state; no pressed background needed.
+		var plain := _star.get_theme_stylebox(&"normal", &"FlatButton")
+		var hover := _star.get_theme_stylebox(&"hover", &"FlatButton")
+		if plain != null:
+			_star.add_theme_stylebox_override("pressed", plain)
+			_star.add_theme_stylebox_override("hover_pressed", hover)
 
 
 func add_action(action_id: StringName, icon_id: StringName, tooltip: String, variation: StringName = &"FlatButton") -> IconButton:

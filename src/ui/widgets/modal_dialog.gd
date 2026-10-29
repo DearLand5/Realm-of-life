@@ -52,6 +52,7 @@ var _panel: PanelContainer
 var _max_h := 400.0
 var _fill_height := false
 var _scroll: ScrollContainer
+var _inner_margin: MarginContainer
 var _title_label: Label
 var _body_label: Label
 var _buttons: Array[Button] = []
@@ -129,9 +130,12 @@ func _init() -> void:
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_scroll)
+	_inner_margin = MarginContainer.new()
+	_inner_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_inner_margin)
 	var inner := VBoxContainer.new()
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll.add_child(inner)
+	_inner_margin.add_child(inner)
 	_body_label = Label.new()
 	_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body_label.theme_type_variation = &"DimLabel"
@@ -139,7 +143,7 @@ func _init() -> void:
 	content = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inner.add_child(content)
-	inner.minimum_size_changed.connect(func() -> void: _update_scroll_height.call_deferred())
+	_inner_margin.minimum_size_changed.connect(func() -> void: _update_scroll_height.call_deferred())
 	footer = HBoxContainer.new()
 	footer.alignment = BoxContainer.ALIGNMENT_END
 	v.add_child(footer)
@@ -231,6 +235,9 @@ func _apply_theme_bits() -> void:
 	UITheme.override_const(_panel.get_child(0) as VBoxContainer, "separation", gap)
 	UITheme.override_const(content, "separation", gap)
 	UITheme.override_const(footer, "separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(_title_label.get_parent() as HBoxContainer, "separation", UITheme.k(self, &"gap_large"))
+	# Room for the scrollbar so it never covers fields.
+	UITheme.override_const(_inner_margin, "margin_right", UITheme.k(self, &"gap_large"))
 
 
 func _layout() -> void:
@@ -254,8 +261,9 @@ func _layout() -> void:
 	_panel.custom_minimum_size.x = w
 	_max_h = avail.y if not (expand_content and not fill) else minf(avail.y, 640.0 * sc)
 	_fill_height = fill or expand_content
-	var inner := _scroll.get_child(0) as Control
-	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL if expand_content else Control.SIZE_FILL
+	var vflag := Control.SIZE_EXPAND_FILL if expand_content else Control.SIZE_FILL
+	_inner_margin.size_flags_vertical = vflag
+	(_inner_margin.get_child(0) as Control).size_flags_vertical = vflag
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL if expand_content else Control.SIZE_FILL
 	_update_scroll_height()
 

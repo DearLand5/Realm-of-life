@@ -77,7 +77,7 @@ func _init() -> void:
 	var top := HBoxContainer.new()
 	_label = Label.new()
 	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_help = HelpButton.for_term("")
 	_help.visible = false
@@ -119,7 +119,8 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _field != null:
 		var t := UITheme.k(self, &"touch")
-		_field.custom_minimum_size = Vector2(t * 2.3, 0)
+		_field.base_min_width = t * 1.8
+		_field.show_value(_value * display_factor)
 		_slider.custom_minimum_size.y = t
 		UITheme.override_const(self, "separation", 0)
 

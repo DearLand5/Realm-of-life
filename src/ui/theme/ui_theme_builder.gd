@@ -194,7 +194,7 @@ func _buttons() -> void:
 		Color.TRANSPARENT, 12.0 * s, 10.0)
 	t.set_type_variation(&"ChipButton", &"Button")
 	_button_type(&"ChipButton", c["inset"], c["surface_hover"], c["accent_soft"], c["text_dim"], c["accent"], c["border"],
-		c["accent"], touch * 0.5, 16.0)
+		c["accent"], touch * 0.5, 12.0)
 	var hud := Color(c["panel"], minf(c["panel"].a, 0.72))
 	t.set_type_variation(&"HudButton", &"Button")
 	_button_type(&"HudButton", hud, c["surface_hover"], sel, c["text"], c["accent"], c["border"], c["accent"], touch * 0.5, 14.0)
