@@ -8,3 +8,6 @@ export_credentials.cfg
 # Local test output
 /test_output/
 /screenshots/tmp/
+
+# Claude Code local state (agent worktrees)
+.claude/
