@@ -12,6 +12,10 @@ const LOD_STEPS: Array[int] = [1, 2, 4]
 ## Distance (m) from the focus where LOD 1 and LOD 2 start.
 var lod_distances := Vector2(110.0, 240.0)
 var max_rebuilds_per_frame: int = 6
+## Milliseconds per frame spent rebuilding chunks (at least one per frame).
+var frame_budget_ms: float = 3.0
+## The focus must move this far (m) before LODs are re-evaluated.
+var refocus_distance: float = 4.0
 var world: WorldData
 var climate: ClimateState
 var material: ShaderMaterial
@@ -21,6 +25,7 @@ var _attrs: TerrainAttributes
 var _chunks: Array[TerrainChunk] = []
 var _count: int = 0              # chunks per side
 var _focus := Vector3.ZERO
+var _evaluated_focus := Vector3(INF, INF, INF)
 var _queue: Array[int] = []
 var _uniform_timer := 0.0
 
@@ -64,14 +69,18 @@ func setup(w: WorldData, shared_climate: ClimateState = null) -> void:
 			c.mi.name = "Chunk_%d_%d" % [cx, cz]
 			add_child(c.mi)
 			_chunks.append(c)
-	update_focus(_focus)
+	update_focus(_focus, true)
 	rebuild_pending(true)
 	_apply_uniforms()
 
 
-## Moves the LOD focus (camera target / observed creature).
-func update_focus(pos: Vector3) -> void:
+## Moves the LOD focus (camera / observed creature). Cheap to call every
+## frame: LODs are re-evaluated only after the focus moved `refocus_distance`.
+func update_focus(pos: Vector3, force: bool = false) -> void:
 	_focus = pos
+	if not force and pos.distance_squared_to(_evaluated_focus) < refocus_distance * refocus_distance:
+		return
+	_evaluated_focus = pos
 	for i in _chunks.size():
 		var c := _chunks[i]
 		var d := Vector2(c.center.x - pos.x, c.center.z - pos.z).length()
@@ -93,10 +102,13 @@ func update_focus(pos: Vector3) -> void:
 ## Builds queued chunks; all of them when `all` (setup, tools).
 func rebuild_pending(all: bool = false) -> void:
 	var budget := _queue.size() if all else max_rebuilds_per_frame
+	var t0 := Time.get_ticks_usec()
 	while budget > 0 and not _queue.is_empty():
 		var i: int = _queue.pop_front()
 		_build(_chunks[i])
 		budget -= 1
+		if not all and float(Time.get_ticks_usec() - t0) > frame_budget_ms * 1000.0:
+			break
 
 
 func _process(delta: float) -> void:

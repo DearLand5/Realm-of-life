@@ -23,7 +23,7 @@ const RANGES := {
 }
 const LARGE_FORMS: Array[StringName] = [&"broadleaf_tree", &"conifer", &"palm", &"shrub", &"cactus", &"reed"]
 const MAX_PER_CELL := {
-	&"grass": 160, &"flower": 40, &"mushroom": 10, &"fern": 24, &"algae": 30, &"kelp": 14,
+	&"grass": 120, &"flower": 40, &"mushroom": 10, &"fern": 24, &"algae": 30, &"kelp": 14,
 	&"shrub": 12, &"reed": 40, &"cactus": 4, &"broadleaf_tree": 6, &"conifer": 7, &"palm": 4,
 }
 const SWAY := {
@@ -42,12 +42,18 @@ var climate: ClimateState
 var max_chunk_updates_per_frame: int = 2
 ## Seconds for the background poll to revisit the nearby chunks.
 var poll_interval: float = 3.0
+## Milliseconds per frame spent rebuilding chunks (at least one per frame).
+var frame_budget_ms: float = 3.0
+## The focus must move this far (m) before bands are re-evaluated.
+var refocus_distance: float = 4.0
 
 var _dim: int = 0
 var _materials: Array[ShaderMaterial] = []
 var _chunks: Array[FloraChunk] = []
 var _queue: Array[int] = []
+var _jobs: Array[FloraJob] = []
 var _focus := Vector3.ZERO
+var _evaluated_focus := Vector3(INF, INF, INF)
 var _range_scale: float = 1.0
 var _density_scale: float = 1.0
 var _shadows := true
@@ -65,7 +71,19 @@ class FloraChunk:
 	var bands := PackedInt32Array()      # per species, -1 = not built
 	var signatures := PackedInt64Array() # per species hash of instance counts
 	var nodes: Array = []                # per species MultiMeshInstance3D or null
+	var jobs: Array = []                 # per species pending FloraJob or null
 	var queued := false
+
+
+## Resumable instance generation for one chunk × species (time-sliced).
+class FloraJob:
+	var chunk: FloraChunk
+	var plant: int
+	var band: int
+	var counts: PackedInt32Array
+	var next_cell: int = 0
+	var n: int = 0
+	var buf := PackedFloat32Array()
 
 
 func setup(w: WorldData, plant_species: Array[PlantSpecies], biomass_provider: Callable = Callable(), eco_cell_size: float = 8.0, shared_climate: ClimateState = null) -> void:
@@ -78,11 +96,12 @@ func setup(w: WorldData, plant_species: Array[PlantSpecies], biomass_provider: C
 		c.queue_free()
 	_chunks.clear()
 	_queue.clear()
+	_jobs.clear()
 	var q := WorldQuality.level()
 	_range_scale = [0.7, 1.0, 1.35][q]
 	_density_scale = [0.5, 1.0, 1.4][q]
 	_shadows = q > WorldQuality.LOW
-	max_chunk_updates_per_frame = [1, 2, 4][q]
+	max_chunk_updates_per_frame = [2, 4, 6][q]
 	_dim = int(ceil(w.size / cell_size))
 	_build_materials()
 	for large in [false, true]:
@@ -102,8 +121,9 @@ func setup(w: WorldData, plant_species: Array[PlantSpecies], biomass_provider: C
 				c.bands.fill(-1)
 				c.signatures.resize(species.size())
 				c.nodes.resize(species.size())
+				c.jobs.resize(species.size())
 				_chunks.append(c)
-	update_focus(_focus)
+	update_focus(_focus, true)
 	_apply_uniforms()
 
 
@@ -132,8 +152,12 @@ static func _v3(c: Color) -> Vector3:
 
 
 ## Moves the LOD focus; chunks whose band changes are queued (nearest first).
-func update_focus(pos: Vector3) -> void:
+## Cheap to call every frame (re-evaluates after `refocus_distance` metres).
+func update_focus(pos: Vector3, force: bool = false) -> void:
 	_focus = pos
+	if not force and pos.distance_squared_to(_evaluated_focus) < refocus_distance * refocus_distance:
+		return
+	_evaluated_focus = pos
 	for i in _chunks.size():
 		var c := _chunks[i]
 		if c.queued:
@@ -164,15 +188,27 @@ func notify_cells_changed(cells: Array) -> void:
 func refresh_all() -> void:
 	while not _queue.is_empty():
 		_rebuild(_queue.pop_front())
+	for job in _jobs:
+		_run_job(job, 0x7FFFFFFFFFFFFFFF)
+		_commit(job)
+	_jobs.clear()
 
 
 func _process(delta: float) -> void:
 	if world == null:
 		return
+	var t0 := Time.get_ticks_usec()
+	var deadline := t0 + int(frame_budget_ms * 1000.0)
+	# Re-evaluate a few queued chunks (cheap: counts only), then generate instances.
 	var budget := max_chunk_updates_per_frame
 	while budget > 0 and not _queue.is_empty():
 		_rebuild(_queue.pop_front())
 		budget -= 1
+	while not _jobs.is_empty() and Time.get_ticks_usec() < deadline:
+		var job: FloraJob = _jobs[0]
+		if _run_job(job, deadline):
+			_jobs.pop_front()
+			_commit(job)
 	_poll_timer -= delta
 	if _poll_timer <= 0.0 and not _chunks.is_empty():
 		# Re-check a few chunks against the provider each tick (cheap signatures).
@@ -232,6 +268,7 @@ func _rebuild(i: int) -> void:
 			if c.nodes[p] != null:
 				(c.nodes[p] as Node).queue_free()
 				c.nodes[p] = null
+			c.jobs[p] = null
 			c.bands[p] = -1
 			c.signatures[p] = 0
 			continue
@@ -254,55 +291,84 @@ func _rebuild(i: int) -> void:
 			continue
 		c.bands[p] = band
 		c.signatures[p] = sig
-		_build_instances(c, p, band, counts)
+		_start_job(c, p, band, counts)
 
 
-func _build_instances(c: FloraChunk, p: int, band: int, counts: PackedInt32Array) -> void:
-	var sp := species[p]
-	var buf := PackedFloat32Array()
+## Queues instance generation for one chunk/species; replaces any older job.
+func _start_job(c: FloraChunk, p: int, band: int, counts: PackedInt32Array) -> void:
+	var job := FloraJob.new()
+	job.chunk = c
+	job.plant = p
+	job.band = band
+	job.counts = counts
+	c.jobs[p] = job
+	_jobs.append(job)
+
+
+## Generates instances cell by cell until `deadline_usec`; returns true when done.
+func _run_job(job: FloraJob, deadline_usec: int) -> bool:
+	var c := job.chunk
+	var sp := species[job.plant]
+	var p := job.plant
 	var half := world.size * 0.5
 	var max_slope: float = MAX_SLOPE.get(sp.form, 1.2)
 	var tilt := sp.form in [&"grass", &"flower", &"fern", &"mushroom", &"algae"]
 	var reed := sp.form == &"reed"
-	var n_inst := 0
-	var k_cell := 0
-	for dz in c.cells:
-		for dx in c.cells:
-			var cx := c.cx0 + dx
-			var cz := c.cz0 + dz
-			var count := counts[k_cell]
-			k_cell += 1
-			for k in count:
-				var s := FloraPlacement.spot(cx, cz, p, k, cell_size)
-				var x := -half + float(cx) * cell_size + s.x
-				var z := -half + float(cz) * cell_size + s.y
-				if not world.contains(x, z):
+	var total := c.cells * c.cells
+	while job.next_cell < total:
+		var k_cell := job.next_cell
+		job.next_cell += 1
+		var cx := c.cx0 + k_cell % c.cells
+		var cz := c.cz0 + k_cell / c.cells
+		var count := job.counts[k_cell]
+		if count == 0:
+			continue
+		# Cells far from water skip per-instance water checks.
+		var ccx := -half + (float(cx) + 0.5) * cell_size
+		var ccz := -half + (float(cz) + 0.5) * cell_size
+		var near_water := world.water_distance_at(ccx, ccz) < cell_size
+		var cell_moist := world.moisture_at(ccx, ccz)
+		for k in count:
+			var s := FloraPlacement.spot(cx, cz, p, k, cell_size)
+			var x := -half + float(cx) * cell_size + s.x
+			var z := -half + float(cz) * cell_size + s.y
+			if not world.contains(x, z):
+				continue
+			var depth := world.water_depth_at(x, z) if (near_water or sp.aquatic) else -1.0
+			if sp.aquatic:
+				if depth < 0.4 or (sp.form == &"algae" and depth > sp.height * 1.1 + 1.0):
 					continue
-				var depth := world.water_depth_at(x, z)
-				if sp.aquatic:
-					if depth < 0.4:
-						continue
-				elif depth > (0.45 if reed else 0.0):
-					continue
-				if world.slope_at(x, z) > max_slope:
-					continue
-				var y := world.height_at(x, z) - 0.04
-				var scale := lerpf(0.72, 1.25, s.z)
-				var basis := Basis(Vector3.UP, s.w * TAU).scaled(Vector3.ONE * scale)
-				if tilt:
-					var nrm := world.normal_at(x, z)
-					var axis := Vector3.UP.cross(nrm)
-					if axis.length_squared() > 1e-6:
-						basis = Basis(axis.normalized(), Vector3.UP.angle_to(nrm) * 0.7) * basis
-				if sp.aquatic and depth > sp.height * 1.1 and sp.form == &"algae":
-					continue
-				var dry := clampf((0.32 - world.moisture_at(x, z)) * 1.6, 0.0, 0.55) + s.z * 0.08
-				# 12 floats transform, 4 colour (white: COLOR carries mesh AO), 4 custom.
-				buf.append_array([basis.x.x, basis.y.x, basis.z.x, x, basis.x.y, basis.y.y, basis.z.y, y,
-					basis.x.z, basis.y.z, basis.z.z, z, 1.0, 1.0, 1.0, 1.0, s.w * 2.0 - 1.0, dry, s.z, 0.0])
-				n_inst += 1
+			elif depth > (0.45 if reed else 0.0):
+				continue
+			var hn := _height_normal(x, z)
+			var nrm := Vector3(hn.y, hn.z, hn.w)
+			if (1.0 - nrm.y * nrm.y) > max_slope * max_slope * nrm.y * nrm.y:
+				continue    # slope = tan(angle) > max_slope
+			var scale := lerpf(0.72, 1.25, s.z)
+			var basis := Basis(Vector3.UP, s.w * TAU).scaled(Vector3.ONE * scale)
+			if tilt:
+				var axis := Vector3.UP.cross(nrm)
+				if axis.length_squared() > 1e-6:
+					basis = Basis(axis.normalized(), Vector3.UP.angle_to(nrm) * 0.7) * basis
+			var dry := clampf((0.32 - cell_moist) * 1.6, 0.0, 0.55) + s.z * 0.08
+			# 12 floats transform, 4 colour (white: COLOR carries mesh AO), 4 custom.
+			job.buf.append_array([basis.x.x, basis.y.x, basis.z.x, x, basis.x.y, basis.y.y, basis.z.y, hn.x - 0.04,
+				basis.x.z, basis.y.z, basis.z.z, z, 1.0, 1.0, 1.0, 1.0, s.w * 2.0 - 1.0, dry, s.z, 0.0])
+			job.n += 1
+		if Time.get_ticks_usec() > deadline_usec:
+			return job.next_cell >= total
+	return true
+
+
+func _commit(job: FloraJob) -> void:
+	var c := job.chunk
+	var p := job.plant
+	if c.jobs[p] != job:
+		return    # superseded by a newer job
+	c.jobs[p] = null
+	var sp := species[p]
 	var node: MultiMeshInstance3D = c.nodes[p]
-	if n_inst == 0:
+	if job.n == 0:
 		if node != null:
 			node.queue_free()
 			c.nodes[p] = null
@@ -319,12 +385,35 @@ func _build_instances(c: FloraChunk, p: int, band: int, counts: PackedInt32Array
 	# multiplies vertex COLOR by zero.
 	mm.use_colors = true
 	mm.use_custom_data = true
-	mm.mesh = PlantMeshFactory.get_mesh(sp, band)
-	mm.instance_count = n_inst
-	mm.buffer = buf
+	mm.mesh = PlantMeshFactory.get_mesh(sp, job.band)
+	mm.instance_count = job.n
+	mm.buffer = job.buf
 	node.multimesh = mm
-	var casts := _shadows and (c.large and sp.form != &"reed") and band < 2
+	var casts := _shadows and (c.large and sp.form != &"reed") and job.band < 2
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Fast inline terrain sample: x = bilinear height, yzw = normal (from the
+## nearest grid sample's central differences).
+func _height_normal(x: float, z: float) -> Vector4:
+	var w := world
+	var r := w.res
+	var gx := clampf((x + w.size * 0.5) / w.cell, 0.0, float(r - 1) - 0.001)
+	var gz := clampf((z + w.size * 0.5) / w.cell, 0.0, float(r - 1) - 0.001)
+	var ix := int(gx)
+	var iz := int(gz)
+	var fx := gx - float(ix)
+	var fz := gz - float(iz)
+	var i := iz * r + ix
+	var hs := w.heights
+	var h := lerpf(lerpf(hs[i], hs[i + 1], fx), lerpf(hs[i + r], hs[i + r + 1], fx), fz)
+	var nx := ix + (1 if fx > 0.5 else 0)
+	var nz := iz + (1 if fz > 0.5 else 0)
+	var c := nz * r + nx
+	var dx := hs[nz * r + mini(nx + 1, r - 1)] - hs[nz * r + maxi(nx - 1, 0)]
+	var dz := hs[mini(nz + 1, r - 1) * r + nx] - hs[maxi(nz - 1, 0) * r + nx]
+	var n := Vector3(-dx, 2.0 * w.cell, -dz).normalized()
+	return Vector4(h, n.x, n.y, n.z) if c >= 0 else Vector4(h, 0, 1, 0)
 
 
 func _apply_uniforms() -> void:
