@@ -292,16 +292,17 @@ CvSurf cv_slot_surface(int slot, vec3 rest, float along, float ventral, float pa
 		s.cc_rough = 0.12;
 		s.rim = 0.15;
 	} else if (type == T_FUR) {
-		float strands = cv_vnoise(Pb * vec3(95.0, 95.0, 34.0));
-		float clumps = cv_vnoise(Pb * 18.0);
-		s.albedo *= 0.8 + 0.3 * strands * (0.6 + 0.4 * clumps);
-		s.height = strands * 0.6 + clumps * 0.4;
-		s.bump = 0.45;
-		s.rough = 0.86;
-		s.spec = 0.12;
-		s.rim = 0.55 * min(thick, 1.5);
-		s.rim_tint = 0.85;
-		s.sss = 0.45;
+		// Soft coat: fine low-contrast strands, larger clumps, velvet rim sheen.
+		float strands = cv_vnoise(Pb * vec3(120.0, 120.0, 40.0));
+		float clumps = cv_fbm(Pb * 11.0);
+		s.albedo *= 0.88 + 0.1 * strands + 0.16 * (clumps - 0.5);
+		s.height = strands * 0.35 + clumps * 0.65;
+		s.bump = 0.22 * min(thick, 2.0);
+		s.rough = 0.88;
+		s.spec = 0.1;
+		s.rim = 0.32 * min(thick, 1.5);
+		s.rim_tint = 0.9;
+		s.sss = 0.4;
 	} else if (type == T_FEATHERS) {
 		vec3 q = Pb * vec3(13.0, 13.0, 9.0);
 		vec4 v = cv_voronoi(q);

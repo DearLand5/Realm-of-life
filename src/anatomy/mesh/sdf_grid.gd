@@ -58,6 +58,32 @@ func _assign_candidates() -> void:
 					var arr := brick_cand[bi]
 					arr.append(j)
 					brick_cand[bi] = arr
+	_prune(bs)
+
+
+## Drops candidates whose own surface is farther from the brick than their
+## reach (blend + skin influence): they cannot change the surface, the
+## gradient or the skin weights inside the brick. Primitive distances are
+## 1-Lipschitz, so the test at the brick centre bounds the whole brick.
+func _prune(bs: float) -> void:
+	var half_diag := bs * 0.8660254 * 1.15
+	var dist := PackedFloat32Array()
+	for bz in bricks.z:
+		for by in bricks.y:
+			for bx in bricks.x:
+				var bi := bx + bricks.x * (by + bricks.y * bz)
+				var cand := brick_cand[bi]
+				if cand.is_empty():
+					continue
+				var c := origin + (Vector3(bx, by, bz) + Vector3.ONE * 0.5) * bs
+				field.distances(c, cand, dist)
+				var kept := PackedInt32Array()
+				for i in cand.size():
+					var j := cand[i]
+					if dist[i] - half_diag <= field.reach[j]:
+						kept.append(j)
+				if kept.size() != cand.size():
+					brick_cand[bi] = kept
 
 
 func brick_index(bx: int, by: int, bz: int) -> int:

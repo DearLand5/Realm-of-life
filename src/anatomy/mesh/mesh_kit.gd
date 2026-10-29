@@ -279,3 +279,75 @@ static func grid(buf: MeshBuffer, cols: int, rows: int, pos_fn: Callable, st: St
 			var a := base + iv * (cols + 1) + iu
 			buf.quad(a, a + 1, a + cols + 2, a + cols + 1)
 	return base
+
+
+## Torus around `axis` (unit) at `center`: major radius R, minor radius r.
+## `ref` is any direction not parallel to the axis (start of the ring).
+static func torus(buf: MeshBuffer, center: Vector3, axis: Vector3, ref: Vector3, R: float, r: float,
+		seg_major: int, seg_minor: int, st: Style, bi: PackedInt32Array, bw: Vector4, arc: float = TAU) -> void:
+	var y := axis.normalized()
+	var x := (ref - y * ref.dot(y)).normalized()
+	if x.length_squared() < 0.5:
+		x = MathUtil.basis_from_y(y).x
+	var z := x.cross(y)
+	var closed := is_equal_approx(arc, TAU)
+	var nmaj := seg_major if closed else seg_major + 1
+	var base := buf.vertex_count()
+	for i in nmaj:
+		var a := arc * float(i) / float(seg_major)
+		var radial := x * cos(a) + z * sin(a)
+		var c := center + radial * R
+		for j in seg_minor:
+			var b := TAU * float(j) / float(seg_minor)
+			var nn := radial * cos(b) + y * sin(b)
+			put(buf, c + nn * r, nn, st, Vector2(float(i) / float(seg_major), float(j) / float(seg_minor)), float(i) / float(seg_major), Vector3(cos(b), float(i) / float(seg_major), sin(b)), bi, bw)
+	var rings := nmaj if closed else nmaj - 1
+	var flip := false
+	if nmaj > 1:
+		var a0 := buf.verts[base]
+		var b0 := buf.verts[base + 1]
+		var c0 := buf.verts[base + seg_minor + 1]
+		flip = (c0 - a0).cross(b0 - a0).dot(buf.normals[base]) < 0.0
+	for i in rings:
+		var r0 := base + i * seg_minor
+		var r1 := base + ((i + 1) % nmaj) * seg_minor
+		for j in seg_minor:
+			var j1 := (j + 1) % seg_minor
+			if flip:
+				buf.quad(r0 + j, r1 + j, r1 + j1, r0 + j1)
+			else:
+				buf.quad(r0 + j, r0 + j1, r1 + j1, r1 + j)
+
+
+## Recomputes smooth normals of vertices >= v_start from the triangles that
+## start at index i_start (area weighted, clockwise front faces).
+static func recompute_normals(buf: MeshBuffer, v_start: int, i_start: int) -> void:
+	var n := buf.vertex_count() - v_start
+	if n <= 0:
+		return
+	var acc := PackedVector3Array()
+	acc.resize(n)
+	for t in range(i_start, buf.indices.size(), 3):
+		var a := buf.indices[t]
+		var b := buf.indices[t + 1]
+		var c := buf.indices[t + 2]
+		if a < v_start or b < v_start or c < v_start:
+			continue
+		var fn := (buf.verts[c] - buf.verts[a]).cross(buf.verts[b] - buf.verts[a])
+		acc[a - v_start] += fn
+		acc[b - v_start] += fn
+		acc[c - v_start] += fn
+	for k in n:
+		var f := acc[k]
+		if f.length_squared() > 1e-24:
+			buf.normals[v_start + k] = f.normalized()
+
+
+## Orthonormal frame with Y = `y` and Z as close as possible to `z_hint`.
+static func frame(y: Vector3, z_hint: Vector3) -> Basis:
+	var yy := y.normalized() if y.length_squared() > 1e-12 else Vector3.UP
+	var zz := z_hint - yy * z_hint.dot(yy)
+	if zz.length_squared() < 1e-8:
+		zz = MathUtil.basis_from_y(yy).z
+	zz = zz.normalized()
+	return Basis(yy.cross(zz), yy, zz)

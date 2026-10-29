@@ -12,6 +12,9 @@ extends RefCounted
 
 const STRIDE := 8   # per primitive: h, ra, rb, slope, ca (-1 = degenerate), flatten, blend, dist_scale
 const FAR := 1.0e9
+## Skin/covering influence width relative to the primitive's mean radius
+## (BodySkinning kernels never reach further than `reach`).
+const INFLUENCE_SIGMA := 0.62
 
 var count: int = 0
 var kind := PackedInt32Array()       # 0 round cone, 1 ellipsoid
@@ -24,6 +27,9 @@ var bone := PackedInt32Array()
 var covering := PackedInt32Array()
 var box: Array[AABB] = []            # conservative bounds incl. flatten and blend
 var src := PackedInt32Array()        # index into AnatomyModel.primitives
+## Distance from the primitive's own surface beyond which it affects neither
+## the blended surface (blend radius) nor skin weights (influence kernel).
+var reach := PackedFloat32Array()
 
 
 ## Builds the field from the model's primitives, skipping primitives whose
@@ -70,6 +76,7 @@ func _add(pr: AnatomyModel.Primitive, src_index: int) -> void:
 		var hi := pr.a.max(pr.b) + pad
 		box.append(AABB(lo, hi - lo))
 	count += 1
+	reach.append(maxf(blend, INFLUENCE_SIGMA * mean_radius(count - 1) + 0.5 * blend))
 
 
 func is_empty() -> bool:

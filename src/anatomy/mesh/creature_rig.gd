@@ -42,7 +42,7 @@ func _init(m: AnatomyModel) -> void:
 	for b in m.bones:
 		part_total[b.index] = maxf(float(inst_len.get(b.instance, b.length)), 1e-6)
 	_build_related()
-	char_size = _char_size()
+	char_size = char_size_of(m)
 
 
 func _build_related() -> void:
@@ -72,8 +72,10 @@ func _build_related() -> void:
 		related[i] = r
 
 
-func _char_size() -> float:
-	var m := model
+## Body diameter of the root part (pattern-space unit), geometry space.
+static func char_size_of(m: AnatomyModel) -> float:
+	if m == null:
+		return 0.1
 	var sum := 0.0
 	var cnt := 0
 	for b in m.bones:

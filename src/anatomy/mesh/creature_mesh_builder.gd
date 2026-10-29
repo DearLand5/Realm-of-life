@@ -50,6 +50,7 @@ static func build_data(model: AnatomyModel, lod: int) -> CreatureMeshData:
 		var grid := SdfGrid.create(field, field.bounds(), cells)
 		ctx.grid = grid
 		ctx.cell = grid.cell
+		ctx.kernel = BodySkinning.Kernel.new(rig, grid)
 		var res := SdfMesher.polygonize(grid, MeshLod.NEWTON[data.lod], MeshLod.SMOOTH[data.lod])
 		mstats = res.stats
 		ctx.buffers[CreatureBuildContext.KIND_BODY] = BodySkinning.build(rig, grid, res, MeshLod.AO[data.lod])

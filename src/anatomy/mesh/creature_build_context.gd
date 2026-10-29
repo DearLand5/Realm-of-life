@@ -26,6 +26,7 @@ var detail: int = 2
 var cell: float = 0.01
 var buffers := {}
 var warnings: Array[String] = []
+var kernel: BodySkinning.Kernel
 var _tmp := PackedVector3Array()
 
 
@@ -71,6 +72,14 @@ func snap(p: Vector3, offset: float = 0.0, fallback_n: Vector3 = Vector3.UP, max
 	if not q.is_finite():
 		return [p, fallback_n, false]
 	return [q, n, true]
+
+
+## Body skin weights at a surface point: [bones: PackedInt32Array(4), weights: Vector4].
+## Falls back to `fallback_bone` away from the SDF body.
+func skin_at(p: Vector3, fallback_bone: int) -> Array:
+	if kernel != null and kernel.eval(p):
+		return [kernel.bi, kernel.bw]
+	return [MeshKit.one_bone(bone_or_root(fallback_bone)), MeshKit.W1]
 
 
 ## Rest-space radius of bone bi at point p (lerp of r0/r1 by projection).
