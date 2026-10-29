@@ -1,0 +1,51 @@
+; Engine configuration file.
+; Realm of Life — 3D life & evolution sandbox (Godot 4.4+, tested on 4.7.2).
+
+config_version=5
+
+[application]
+
+config/name="Realm of Life"
+config/description="3D-песочница жизни, анатомии, экосистем и эволюции"
+config/version="0.1.0"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.4", "Mobile")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.055, 0.12, 0.14, 1)
+
+[autoload]
+
+EventBus="*res://src/core/event_bus.gd"
+Game="*res://src/core/game.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=6
+window/energy_saving/keep_screen_on=true
+
+[gui]
+
+common/drop_mouse_on_gui_input_disabled=true
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=30
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+rendering_device/fallback_to_opengl3=true
+textures/vram_compression/import_etc2_astc=true
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/size.mobile=1024
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=1
+anti_aliasing/quality/msaa_3d=1

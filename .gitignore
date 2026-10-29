@@ -1,0 +1,10 @@
+# Godot 4
+.godot/
+/android/
+*.tmp
+*.translation
+export.cfg
+export_credentials.cfg
+# Local test output
+/test_output/
+/screenshots/tmp/
