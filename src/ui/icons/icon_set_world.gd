@@ -67,9 +67,9 @@ static func draw(p: IconPainter, id: StringName) -> bool:
 		&"moon":
 			_moon(p)
 		&"cloud":
-			p.poly(_cloud_points(Vector2(0, 1.5), 1.0), true)
+			p.poly(_cloud_points(Vector2(0, 0.5), 1.0), true)
 		&"rain":
-			p.poly(_cloud_points(Vector2(0, -2.5), 0.9), true)
+			p.poly(_cloud_points(Vector2(0, -3.0), 0.85), true)
 			for x in [8.0, 12.0, 16.0]:
 				p.line(Vector2(x, 16.5), Vector2(x - 1.5, 21))
 		&"snow":
@@ -194,19 +194,20 @@ static func draw(p: IconPainter, id: StringName) -> bool:
 static func _dna(p: IconPainter) -> void:
 	var a := PackedVector2Array()
 	var b := PackedVector2Array()
-	var n := 24
+	var n := 28
 	for i in n + 1:
 		var t := float(i) / float(n)
-		var y := lerpf(2.5, 21.5, t)
-		var s := sin(t * TAU)
-		a.append(Vector2(12.0 + 6.0 * s, y))
-		b.append(Vector2(12.0 - 6.0 * s, y))
+		var y := lerpf(3.0, 21.0, t)
+		var w := cos(t * TAU) * 5.5
+		a.append(Vector2(12.0 + w, y))
+		b.append(Vector2(12.0 - w, y))
 	p.poly(a)
 	p.poly(b)
-	for t in [0.12, 0.38, 0.62, 0.88]:
-		var y := lerpf(2.5, 21.5, t)
-		var s := sin(t * TAU) * 6.0
-		p.line(Vector2(12.0 - absf(s) + 1.6, y), Vector2(12.0 + absf(s) - 1.6, y))
+	for t in [0.07, 0.43, 0.57, 0.93]:
+		var y := lerpf(3.0, 21.0, t)
+		var half := absf(cos(t * TAU) * 5.5) - 1.8
+		if half > 0.4:
+			p.line(Vector2(12.0 - half, y), Vector2(12.0 + half, y))
 
 
 static func _moon(p: IconPainter) -> void:
@@ -240,30 +241,36 @@ static func _moon(p: IconPainter) -> void:
 	p.poly(pts, true)
 
 
-## Three-lobed cloud outline, offset by `o`, scaled around (12, 14) by `s`.
-static func _cloud_points(o: Vector2, s: float) -> PackedVector2Array:
-	var l := Vector2(7.0, 14.5)
-	var t := Vector2(12.5, 10.5)
-	var r := Vector2(17.5, 14.0)
-	var rl := 4.0
-	var rt := 5.6
-	var rr := 4.5
-	var base_y := 18.5
-	var lt := IconPainter.circle_intersection_angles(l, rl, t, rt)
-	var tr := IconPainter.circle_intersection_angles(t, rt, r, rr)
-	var tl := IconPainter.circle_intersection_angles(t, rt, l, rl)
-	var rt_ang := IconPainter.circle_intersection_angles(r, rr, t, rt)
-	var pts := PackedVector2Array()
-	# Left lobe from its bottom (where the base line meets it) up to the top lobe.
-	var l_start := PI - acos(clampf((base_y - l.y) / rl, -1.0, 1.0)) + PI * 0.5
-	pts.append_array(IconPainter.arc_points(l, rl, l_start, lt[0] + TAU, 10))
-	pts.append_array(IconPainter.arc_points(t, rt, tl[1] + TAU, tr[0] + TAU * 2.0, 14))
-	var r_end := asin(clampf((base_y - r.y) / rr, -1.0, 1.0))
-	pts.append_array(IconPainter.arc_points(r, rr, rt_ang[1], r_end + TAU, 10))
+## Three-lobed cloud outline (union of circles over a flat base), offset by
+## `o`, scaled around (12, 14) by `sc`.
+static func _cloud_points(o: Vector2, sc: float) -> PackedVector2Array:
+	var circles := [Vector3(7.2, 14.8, 4.2), Vector3(12.6, 10.8, 5.6), Vector3(17.4, 14.6, 4.4)]
+	var base_y := 19.0
+	var centre := Vector2(12.2, 14.6)
+	var pts: Array[Vector2] = []
+	for ci in circles.size():
+		var cc: Vector3 = circles[ci]
+		for i in 48:
+			var v := Vector2(cc.x, cc.y) + Vector2.from_angle(TAU * float(i) / 48.0) * cc.z
+			if v.y > base_y + 0.01:
+				continue
+			var inside := false
+			for cj in circles.size():
+				if cj == ci:
+					continue
+				var oc: Vector3 = circles[cj]
+				if v.distance_to(Vector2(oc.x, oc.y)) < oc.z - 0.05:
+					inside = true
+					break
+			if not inside and not (v.x > 7.2 and v.x < 17.4 and v.y > 14.6):
+				pts.append(v)
+	for i in 9:
+		pts.append(Vector2(lerpf(7.2, 17.4, float(i) / 8.0), base_y))
+	pts.sort_custom(func(a: Vector2, b: Vector2) -> bool: return (a - centre).angle() < (b - centre).angle())
 	var out := PackedVector2Array()
 	var c := Vector2(12, 14)
 	for v in pts:
-		out.append(c + (v - c) * s + o)
+		out.append(c + (v - c) * sc + o)
 	return out
 
 
