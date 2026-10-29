@@ -91,14 +91,24 @@ static func _paw(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, e: Vector
 	var toe_r := r * (0.42 if n <= 4 else 0.34)
 	for k in n:
 		var u := (float(k) / float(maxi(n - 1, 1)) - 0.5) if n > 1 else 0.0
-		var ang := u * deg_to_rad(95.0)
+		var ang := u * deg_to_rad(95.0 if not claws else 80.0)
 		var dir := (fwd * cos(ang) + side * sin(ang)).normalized()
-		var tc := center + dir * r * 1.15 + up * (-r * 0.12)
-		var tb := Basis(dir.cross(up).normalized(), up, -dir).orthonormalized()
-		MeshKit.ellipsoid(body, Transform3D(tb, tc), Vector3(toe_r, toe_r * 0.8, toe_r * 1.15), MeshLod.seg(ctx.lod, 10, 5), MeshLod.seg(ctx.lod, 6, 3), st, bi, MeshKit.W1)
 		if claws:
-			var co := tc + dir * toe_r * 0.75 + up * toe_r * 0.15
-			AppendageBuilder.cone(ctx, co, (dir + up * 0.25).normalized(), toe_r * 1.5, toe_r * 0.42, AppendageBuilder.CODE_CLAW, slot, a.part_id, bone, 0.6, -up, 0.9)
+			# Splayed digits ending in curved claws (cats, birds, theropods).
+			var len_k := r * (1.9 - 0.6 * absf(u))
+			var sw := MeshKit.Sweep.new()
+			var rings := 3 if ctx.lod == 0 else 2
+			var start := center + dir * r * 0.5 - up * r * 0.1
+			for i in rings + 1:
+				var t := float(i) / float(rings)
+				sw.add_ring(start + dir * (len_k * t) + up * (sin(t * PI) * r * 0.15 - t * r * 0.15), toe_r * lerpf(0.95, 0.7, t), 0.8, dir.cross(up), bi, MeshKit.W1, t)
+			MeshKit.sweep(body, sw, st, MeshLod.tube_sides(ctx.lod, 0.4), 2)
+			var tip := start + dir * len_k - up * r * 0.12
+			AppendageBuilder.cone(ctx, tip, (dir + up * 0.35).normalized(), toe_r * 1.6, toe_r * 0.5, AppendageBuilder.CODE_CLAW, slot, a.part_id, bone, 0.6, -up, 1.0)
+		else:
+			var tc := center + dir * r * 1.15 + up * (-r * 0.12)
+			var tb := Basis(dir.cross(up).normalized(), up, -dir).orthonormalized()
+			MeshKit.ellipsoid(body, Transform3D(tb, tc), Vector3(toe_r, toe_r * 0.8, toe_r * 1.15), MeshLod.seg(ctx.lod, 10, 5), MeshLod.seg(ctx.lod, 6, 3), st, bi, MeshKit.W1)
 
 
 ## Paired tarsal hooks at the tip of thin arthropod legs.

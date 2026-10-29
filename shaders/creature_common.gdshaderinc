@@ -114,6 +114,35 @@ vec4 cv_voronoi(vec3 p) {
 	return vec4(f1, f2, id, 0.0);
 }
 
+// Same cells as cv_voronoi, w = signed offset of p from its nearest feature
+// point along `dir` (scales / feathers overlapping in one direction).
+vec4 cv_voronoi_dir(vec3 p, vec3 dir) {
+	vec3 b = floor(p - 0.5);
+	float f1 = 8.0;
+	float f2 = 8.0;
+	float id = 0.0;
+	float off = 0.0;
+	for (int z = 0; z < 2; z++) {
+		for (int y = 0; y < 2; y++) {
+			for (int x = 0; x < 2; x++) {
+				vec3 c = b + vec3(float(x), float(y), float(z));
+				vec3 j = cv_hash33(c);
+				vec3 d = p - (c + 0.1 + 0.8 * j);
+				float l = length(d);
+				if (l < f1) {
+					f2 = f1;
+					f1 = l;
+					id = j.x;
+					off = dot(d, dir);
+				} else if (l < f2) {
+					f2 = l;
+				}
+			}
+		}
+	}
+	return vec4(f1, f2, id, off);
+}
+
 vec3 cv_seed_offset() {
 	return cv_hash33(vec3(cv_individual.x * 937.0, 17.0, 3.0)) * 50.0;
 }
@@ -161,25 +190,28 @@ float cv_pattern(int pat, vec3 P, float along, float ventral, float part_t) {
 	} else if (pat == P_COUNTERSHADE) {
 		return smoothstep(0.42, 0.74, ventral + (cv_vnoise(P * 3.0) - 0.5) * 0.14);
 	} else if (pat == P_STRIPES) {
+		// Tiger-like: wavy bands across the body that thin out towards the
+		// belly and break up irregularly.
 		float warp = cv_fbm(P * 1.3) * 1.8;
 		float s = sin((along * 3.2 + warp) * 3.14159);
-		float belly = 1.0 - smoothstep(0.62, 0.86, ventral);
-		return smoothstep(0.2, 0.55, s) * belly;
+		float thr = mix(0.25, 0.85, smoothstep(0.35, 0.85, ventral)) + (cv_vnoise(P * 3.7) - 0.5) * 0.45;
+		return smoothstep(thr, thr + 0.12, s);
 	} else if (pat == P_SPOTS) {
 		vec4 v = cv_voronoi(P * 3.2);
 		float r = 0.2 + 0.16 * v.z;
 		return 1.0 - smoothstep(r - 0.07, r + 0.07, v.x + (cv_vnoise(P * 9.0) - 0.5) * 0.08);
 	} else if (pat == P_ROSETTES) {
 		// Broken rings of dark spots around slightly darker centres (leopard / jaguar).
-		vec3 q = P * 4.4;
+		vec3 q = P * 3.6;
 		vec4 v = cv_voronoi(q + vec3(cv_vnoise(q * 1.7) * 0.35));
-		float n = cv_vnoise(q * 3.1);
-		float rr = 0.22 + 0.06 * v.z;
-		float ring = smoothstep(rr - 0.09, rr - 0.02, v.x) * (1.0 - smoothstep(rr + 0.05, rr + 0.13, v.x + n * 0.08));
-		float gaps = smoothstep(0.3, 0.5, cv_vnoise(q * 2.3 + 13.0) + 0.25 * v.z);
-		float inner = (1.0 - smoothstep(rr - 0.12, rr - 0.04, v.x)) * 0.22;
+		float rr = 0.25 + 0.06 * v.z;
+		float band = smoothstep(rr - 0.13, rr - 0.05, v.x) * (1.0 - smoothstep(rr + 0.07, rr + 0.15, v.x));
+		// The ring is made of separate blotches (small cells), not a drawn circle.
+		vec4 b = cv_voronoi(q * 2.3 + 7.0);
+		float blotch = 1.0 - smoothstep(0.3, 0.46, b.x + (cv_vnoise(q * 7.0) - 0.5) * 0.14);
+		float inner = (1.0 - smoothstep(rr - 0.14, rr - 0.06, v.x)) * 0.28;
 		float belly = 1.0 - smoothstep(0.66, 0.9, ventral);
-		return (ring * gaps + inner) * belly;
+		return (band * blotch + inner) * belly;
 	} else if (pat == P_BANDS) {
 		float s = sin(along * 1.9 * 3.14159 + cv_vnoise(P * 2.0) * 0.8);
 		return smoothstep(-0.15, 0.25, s);
@@ -313,13 +345,17 @@ CvSurf cv_slot_surface(int slot, vec3 rest, float along, float ventral, float pa
 		s.rim_tint = 0.9;
 		s.sss = 0.4;
 	} else if (type == T_FEATHERS) {
-		vec3 q = Pb * vec3(13.0, 13.0, 9.0);
-		vec4 v = cv_voronoi(q);
-		float vane = sin((v.x * 26.0) + q.y * 3.0) * 0.5 + 0.5;
-		float tip = smoothstep(0.25, 0.5, v.x);
-		s.albedo *= (0.84 + 0.16 * vane) * mix(1.0, 0.78, tip);
-		s.height = (1.0 - v.x) * 0.7 + vane * 0.15;
-		s.bump = 0.55;
+		// Overlapping contour feathers: each cell is lit from its base (head
+		// side) to its free tip (tail side), with a soft shadow under the next row.
+		vec3 q = Pb * vec3(19.0, 19.0, 12.0) / max(thick, 0.4);
+		vec4 v = cv_voronoi_dir(q, vec3(0.0, -0.25, 0.97));
+		float scallop = smoothstep(-0.5, 0.45, v.w);
+		float edge = smoothstep(0.0, 0.12, v.y - v.x);
+		float barbs = 0.5 + 0.5 * sin(dot(q, vec3(9.0, 23.0, 3.0)));
+		float fluff = cv_vnoise(Pb * 70.0);
+		s.albedo *= mix(0.86, 1.03, scallop) * mix(0.9, 1.0, edge) * (0.95 + 0.05 * barbs) * (0.96 + 0.08 * fluff);
+		s.height = scallop * 0.7 + edge * 0.15 + fluff * 0.15;
+		s.bump = 0.3;
 		s.rough = 0.72;
 		s.spec = 0.22;
 		s.rim = 0.3;

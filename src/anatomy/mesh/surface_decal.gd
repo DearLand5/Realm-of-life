@@ -27,9 +27,22 @@ static func strip(ctx: CreatureBuildContext, pts: PackedVector3Array, nrm: Packe
 		return
 	var buf := ctx.buffer(CreatureBuildContext.KIND_HARD)
 	var st := MeshKit.param_style(Color(1, 0, 0, 0), float(code), part_id, float(code))
-	var lift := width * 0.35
+	# Straight segments between surface samples sag below a convex surface by
+	# about L·θ/8 (θ = angle between the sample normals): lift by that much.
+	var lifts := PackedFloat32Array()
+	lifts.resize(n)
+	for i in n:
+		var sag := 0.0
+		for j in [i - 1, i + 1]:
+			if j < 0 or j >= n:
+				continue
+			var l := pts[i].distance_to(pts[j])
+			var th := acos(clampf(nrm[i].dot(nrm[j]), -1.0, 1.0))
+			sag = maxf(sag, l * th / 8.0)
+		lifts[i] = width * 0.35 + sag * 1.4
 	var base := buf.vertex_count()
 	for i in n:
+		var lift := lifts[i]
 		var t := pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]
 		var nn := nrm[i]
 		var side := nn.cross(t)

@@ -73,27 +73,33 @@ func _lineup(out: String, lod: int) -> void:
 		v.scale = Vector3.ONE * fit
 		var row := i / cols
 		var col := i % cols
-		var pos := Vector3((col - (cols - 1) * 0.5) * spacing, 0.0, (row - 1) * spacing * 1.05)
-		v.position = pos - Vector3(v.model.aabb.get_center().x, 0, v.model.aabb.get_center().z) * fit
-		if v.model.body_axis == &"vertical":
-			v.position.y += 0.05
-		v.rotation_degrees.y = 145.0
+		var pos := Vector3((col - (cols - 1) * 0.5) * spacing, 0.0, (row - 1) * 3.45)
+		var yaw := deg_to_rad(145.0)
+		var c := v.model.aabb.get_center() * fit
+		v.position = pos - Basis(Vector3.UP, yaw) * Vector3(c.x, 0.0, c.z)
+		v.rotation.y = yaw
 		holder.add_child(v)
 		var lab := Label3D.new()
 		lab.text = BodyPlanPresets.label(ids[i])
-		lab.font_size = 44
-		lab.pixel_size = 0.0045
-		lab.outline_size = 10
-		lab.modulate = Color(0.95, 0.95, 0.92)
-		lab.position = pos + Vector3(0, -0.02, 0.85)
-		lab.rotation_degrees.x = -60.0
+		lab.font_size = 40
+		lab.pixel_size = 0.0042
+		lab.outline_size = 12
+		lab.outline_modulate = Color(0.1, 0.1, 0.1, 0.85)
+		lab.modulate = Color(0.97, 0.96, 0.92)
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lab.no_depth_test = true
+		lab.position = pos + Vector3(0, 0.02, 1.05)
 		holder.add_child(lab)
-	_cam.fov = 50.0
-	_cam.look_at_from_position(Vector3(0, 7.6, 7.4), Vector3(0, 0.2, 0.25))
+	# Orthographic catalogue view: equal scale, no perspective overlap.
+	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_cam.size = 8.7
+	var dir := Vector3(0.0, sin(deg_to_rad(36.0)), cos(deg_to_rad(36.0)))
+	_cam.look_at_from_position(Vector3(0, 0.35, 0.45) + dir * 30.0, Vector3(0, 0.35, 0.45))
 	_cam.make_current()
 	await _settle()
 	var img := await _grab()
 	_save(img, out)
+	_cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 	holder.queue_free()
 	await process_frame
 

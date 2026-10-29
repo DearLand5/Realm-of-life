@@ -50,9 +50,10 @@ void fragment() {
 		vec3 sclera = mix(vec3(0.86, 0.82, 0.74), v_iris * 0.5, 0.35);
 		col = mix(sclera, iris, 1.0 - smoothstep(iris_r - 0.01, iris_r + 0.04, cap));
 		col = mix(col, vec3(0.01), pupil_m);
-		rough = 0.04;
-		spec = 0.9;
-		cc = 1.0;
+		// Cornea: a sharp small highlight without washing the iris out.
+		rough = 0.12;
+		spec = 0.35;
+		cc = 0.55;
 	} else if (type == 1) {
 		// Compound eye: hexagonal facets (offset grid in a stereographic projection).
 		vec2 q = p.xz / (1.3 + p.y) * 26.0;

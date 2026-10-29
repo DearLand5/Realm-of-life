@@ -9,7 +9,7 @@ const COUNT := 3
 const CELLS: Array[int] = [64, 34, 18]
 ## SDF chains thinner than this many cells are rendered as tubes at that LOD.
 const THIN_CELLS: Array[float] = [0.75, 0.8, 0.85]
-const NEWTON: Array[int] = [2, 2, 1]
+const NEWTON: Array[int] = [2, 1, 1]
 const SMOOTH: Array[int] = [1, 0, 0]
 const AO: Array[bool] = [true, true, false]
 const TUBE_SIDES: Array[int] = [10, 7, 4]

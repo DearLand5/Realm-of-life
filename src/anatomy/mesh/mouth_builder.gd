@@ -70,7 +70,7 @@ static func _jaws(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 	for bi in chain:
 		head_len += ctx.model.bones[bi].length
 	var gape := minf(maxf(a.size, r) * 1.6, maxf(head_len, r) * 0.85)
-	var n := 13 if ctx.lod == 0 else 7
+	var n := 21 if ctx.lod == 0 else 11
 	var guesses := PackedVector3Array()
 	for i in n:
 		var u := float(i) / float(n - 1) * 2.0 - 1.0     # -1 left corner .. 0 front .. +1 right corner

@@ -44,9 +44,13 @@ static func polygonize(grid: SdfGrid, newton_steps: int = 2, smooth_passes: int 
 	vals.resize(px * py * grid.points.z)
 	vals.fill(SENTINEL)
 
-	# 1 + 2: classify bricks and fill values of active ones.
+	# 1 + 2: two-level culling — bricks of B³ cells, then their 2³-cell
+	# sub-cubes (classified by the value at their centre grid point) — and
+	# value fill for the surface sub-cubes only.
 	var reach := cell * float(B) * 0.8660254 * CULL_SAFETY + cell * 0.25
-	var active := PackedInt32Array()
+	var sub_reach := cell * 2.0 * 0.8660254 * CULL_SAFETY + cell * 0.25
+	var subs := PackedInt32Array()   # min cell (x, y, z) of every surface sub-cube
+	var active_bricks := 0
 	var evals := 0
 	for bz in grid.bricks.z:
 		for by in grid.bricks.y:
@@ -60,17 +64,30 @@ static func polygonize(grid: SdfGrid, newton_steps: int = 2, smooth_passes: int 
 				evals += 1
 				if absf(dc) > reach:
 					continue
-				active.append(bi)
-				for z in range(bz * B, bz * B + B + 1):
-					for y in range(by * B, by * B + B + 1):
-						var row := px * (y + py * z)
-						var pyz := Vector3(0.0, float(y), float(z)) * cell + org
-						for x in range(bx * B, bx * B + B + 1):
-							var idx := x + row
-							if vals[idx] < SENTINEL:
-								continue
-							vals[idx] = field.value(Vector3(pyz.x + float(x) * cell, pyz.y, pyz.z), cand)
-							evals += 1
+				active_bricks += 1
+				for s3 in 8:
+					var x0 := bx * B + (s3 & 1) * 2
+					var y0 := by * B + ((s3 >> 1) & 1) * 2
+					var z0 := bz * B + ((s3 >> 2) & 1) * 2
+					var ci := (x0 + 1) + px * ((y0 + 1) + py * (z0 + 1))
+					var ds := vals[ci]
+					if ds >= SENTINEL:
+						ds = field.value(org + Vector3(float(x0 + 1), float(y0 + 1), float(z0 + 1)) * cell, cand)
+						vals[ci] = ds
+						evals += 1
+					if absf(ds) > sub_reach:
+						continue
+					subs.append_array(PackedInt32Array([x0, y0, z0]))
+					for z in range(z0, z0 + 3):
+						for y in range(y0, y0 + 3):
+							var row := px * (y + py * z)
+							var pyz := Vector3(0.0, float(y), float(z)) * cell + org
+							for x in range(x0, x0 + 3):
+								var idx := x + row
+								if vals[idx] < SENTINEL:
+									continue
+								vals[idx] = field.value(Vector3(pyz.x + float(x) * cell, pyz.y, pyz.z), cand)
+								evals += 1
 	var t1 := Time.get_ticks_usec()
 
 	# 3: vertices.
@@ -83,13 +100,13 @@ static func polygonize(grid: SdfGrid, newton_steps: int = 2, smooth_passes: int 
 	var vcell := PackedInt32Array()
 	var vmask := PackedInt32Array()
 	var pos := res.positions
-	for bi in active:
-		var bx := bi % grid.bricks.x
-		var by := (bi / grid.bricks.x) % grid.bricks.y
-		var bz := bi / (grid.bricks.x * grid.bricks.y)
-		for z in range(bz * B, bz * B + B):
-			for y in range(by * B, by * B + B):
-				for x in range(bx * B, bx * B + B):
+	for k3 in range(0, subs.size(), 3):
+		var sx0 := subs[k3]
+		var sy0 := subs[k3 + 1]
+		var sz0 := subs[k3 + 2]
+		for z in range(sz0, sz0 + 2):
+			for y in range(sy0, sy0 + 2):
+				for x in range(sx0, sx0 + 2):
 					var i0 := x + px * (y + py * z)
 					var v0 := vals[i0]
 					var v1 := vals[i0 + 1]
@@ -187,7 +204,7 @@ static func polygonize(grid: SdfGrid, newton_steps: int = 2, smooth_passes: int 
 	_fix_bad_normals(pos, nrm, idx_out)
 	var t4 := Time.get_ticks_usec()
 	res.stats = {
-		"bricks": grid.bricks.x * grid.bricks.y * grid.bricks.z, "active_bricks": active.size(),
+		"bricks": grid.bricks.x * grid.bricks.y * grid.bricks.z, "active_bricks": active_bricks, "surface_subcubes": subs.size() / 3,
 		"evals": evals, "vertices": pos.size(), "triangles": idx_out.size() / 3,
 		"t_values_ms": (t1 - t0) / 1000.0, "t_vertices_ms": (t2 - t1) / 1000.0,
 		"t_quads_ms": (t3 - t2) / 1000.0, "t_project_ms": (t4 - t3) / 1000.0,

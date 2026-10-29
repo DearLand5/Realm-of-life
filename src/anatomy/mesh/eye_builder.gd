@@ -44,16 +44,32 @@ static func build(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 				_eyelid(ctx, a, center, gaze, basis, r, bone)
 
 
-## Soft rim where the eyeball meets the head surface.
+## Soft lid rim exactly where the eyeball emerges from the head: the polar
+## angle at which the eyeball surface enters the body SDF is found per
+## azimuth and averaged; the rim hugs the eyeball along that circle.
 static func _eyelid(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, center: Vector3, gaze: Vector3, basis: Basis, r: float, bone: int) -> void:
-	var off := r * 0.35
+	var theta := deg_to_rad(80.0)
 	if ctx.has_surface():
-		# Surface crossing along the gaze axis (head surface near the eye).
-		var s: Array = ctx.snap(center + gaze * r * 1.2, 0.0, gaze, r * 2.5)
-		if s[2]:
-			off = clampf((s[0] - center).dot(gaze), -0.1 * r, 0.8 * r)
-	var ring_r := sqrt(maxf(r * r - off * off, r * r * 0.1)) * 1.03
+		var sum := 0.0
+		var hits := 0
+		for k in 6:
+			var phi := TAU * float(k) / 6.0
+			var radial := basis.x * cos(phi) + basis.z * sin(phi)
+			for step in range(1, 19):
+				var th := PI * float(step) / 18.0
+				var p := center + (gaze * cos(th) + radial * sin(th)) * r
+				if ctx.distance(p) < 0.0:
+					sum += th
+					hits += 1
+					break
+		if hits > 0:
+			theta = sum / float(hits)
+		elif ctx.distance(center) > 0.0:
+			return  # eyeball entirely outside the body (e.g. on a stalk): no lid
+	theta = clampf(theta, deg_to_rad(25.0), deg_to_rad(150.0))
+	var off := r * cos(theta)
+	var ring_r := r * sin(theta) * 0.97
 	var cov := ctx.slot(ctx.model.bones[bone].covering if bone > 0 else a.covering)
 	var st := MeshKit.body_style(cov, a.part_id, ctx.rig.along_on_bone(bone, center) if bone > 0 else 0.0, 0.62)
 	var seg := MeshLod.seg(ctx.lod, 20, 8)
-	MeshKit.torus(ctx.buffer(CreatureBuildContext.KIND_BODY), center + gaze * off, gaze, basis.z, ring_r, r * 0.17, seg, maxi(4, seg / 3), st, MeshKit.one_bone(bone), MeshKit.W1)
+	MeshKit.torus(ctx.buffer(CreatureBuildContext.KIND_BODY), center + gaze * off, gaze, basis.z, ring_r, r * 0.13, seg, maxi(4, seg / 3), st, MeshKit.one_bone(bone), MeshKit.W1)
