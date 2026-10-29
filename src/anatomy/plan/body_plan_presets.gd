@@ -287,14 +287,14 @@ static func _fish() -> Genome:
 	]
 	plan.coverings[0].iridescence = 0.5
 	plan.biology = {"habitat": "water", "reproduction_mode": "sexual", "reproduction_method": "eggs", "diet": "omnivore"}
-	var torso := _set_muscle(chain(&"torso", 0.04, [[0.12, 0.06, 0, 0, 1.7], [0.15, 0.068, 0, 0, 1.7], [0.15, 0.05, 0, 0, 1.6], [0.12, 0.022, 0, 0, 1.4]]), 0.6, 0.6)
+	var torso := _set_muscle(chain(&"torso", 0.02, [[0.12, 0.042, 0, 0, 1.45], [0.15, 0.062, 0, 0, 1.6], [0.15, 0.068, 0, 0, 1.7], [0.12, 0.06, 0, 0, 1.65]]), 0.6, 0.6)
 	var t := plan.add_part(torso)
-	var head := att(plan, chain(&"head", 0.055, [[0.09, 0.045, 0, 0, 1.4], [0.04, 0.025, -5, 0, 1.2]]), t, 1.0, 0.0, 0.0, 0, 0, 0, 0, "Голова")
+	var head := att(plan, chain(&"head", 0.06, [[0.07, 0.05, -2, 0, 1.45], [0.05, 0.026, -6, 0, 1.2]]), t, 1.0, 0.0, 0.0, 0, 0, 0, 0, "Голова")
 	att(plan, point(&"eye", {"eye_type": "camera", "size": 0.36, "fov": 175.0, "acuity": 0.6, "night_vision": 0.5, "iris_color": Color(0.8, 0.7, 0.3)}), head, 0.55, 22.0, 0.92, 1, 0.0, 15.0, 0.0, "Глаз")
 	att(plan, point(&"mouth", {"mouth_type": "jaws", "teeth": "mixed", "size": 0.6, "bite_force": 0.3}), head, 1.0, 270.0, 0.25)
-	att(plan, point(&"gill", {"area": 1.4, "slits": 4}), head, 0.1, 10.0, 0.97, 1, 0.0, 0.0, 0.0, "Жабры")
+	att(plan, point(&"gill", {"area": 1.4, "slits": 1}), head, 0.1, 10.0, 0.97, 1, 0.0, 0.0, 0.0, "Жабры")
 	att(plan, point(&"sensor", {"sensor_type": "vibration", "sensitivity": 0.7, "size": 0.1}), t, 0.6, 5.0, 0.98, 1, 0.0, 0.0, 0.0, "Боковая линия")
-	var caudal := chain(&"fin", 0.025, [[0.13, 0.008, 0]], &"swim")
+	var caudal := chain(&"fin", 0.02, [[0.13, 0.008, 0]], &"swim")
 	caudal.set_param("fin_type", "caudal")
 	caudal.set_param("fin_area", 2.2)
 	caudal.covering = 1

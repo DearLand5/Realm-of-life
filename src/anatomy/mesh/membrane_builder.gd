@@ -167,7 +167,7 @@ static func _caudal(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, chain:
 	var nt := MeshLod.seg(ctx.lod, 5, 2)
 	var parent := b0.parent
 	var side := axis.cross(vert).normalized()
-	var start := root + axis * length * 0.25
+	var start := root + axis * length * 0.05
 	var base := buf.vertex_count()
 	for i in nr + 1:
 		var q := float(i) / float(nr) * 2.0 - 1.0

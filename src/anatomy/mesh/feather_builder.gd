@@ -39,26 +39,33 @@ static func wing(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, chain: Pa
 		var s := lerpf(hand_start, 0.98, u)
 		var tr := edge.frame_vec(s, 0)
 		var sp := (edge.point(minf(s + 0.02, 1.0)) - edge.point(maxf(s - 0.02, 0.0))).normalized()
-		var ang := lerpf(0.3, 1.25, u)
+		var ang := lerpf(0.25, 0.95, u)
 		var dir := (tr * cos(ang) + sp * sin(ang)).normalized()
-		var length := chord * (1.05 + 0.32 * sin(PI * clampf(u * 0.85, 0.0, 1.0)))
+		var length := chord * (0.98 + 0.22 * sin(PI * clampf(u * 0.85, 0.0, 1.0)))
 		_feather(ctx, buf, edge.point(s), dir, edge.frame_vec(s, 2) * up_sign, length, length * 0.17, slot, a.part_id, idx,
 			chain, edge.chain_s(s), parent, 0.0, s, float(n_sec + i) * 0.0012 * chord, ctx.lod)
 		idx += 1
-	# Coverts: shorter, wider row on top of the flight-feather bases.
+	# Coverts: shorter, wider rows over (and under) the flight-feather bases,
+	# lifted by the arm radius so they hide the wing bones.
 	if ctx.detail >= 1:
 		var n_cov := MeshLod.seg(ctx.lod, 12, 5)
-		for i in n_cov:
-			var u := float(i) / float(maxi(n_cov - 1, 1))
-			var s := lerpf(0.02, 0.9, u)
-			var tr := edge.frame_vec(s, 0)
-			var nr := edge.frame_vec(s, 2) * up_sign
-			var sp := (edge.point(minf(s + 0.02, 1.0)) - edge.point(maxf(s - 0.02, 0.0))).normalized()
-			var dir := (tr + sp * 0.35 * u).normalized()
-			var length := chord * lerpf(0.5, 0.36, u)
-			_feather(ctx, buf, edge.point(s) - tr * chord * 0.04, dir, nr, length, length * 0.42, slot, a.part_id, idx,
-				chain, edge.chain_s(s), parent, 0.5 * pow(1.0 - u, 3.0), s, chord * 0.03, ctx.lod)
-			idx += 1
+		var layers: Array[float] = [1.0]
+		if ctx.lod == 0:
+			layers.append(-1.0)
+		for side in layers:
+			for i in n_cov:
+				var u := float(i) / float(maxi(n_cov - 1, 1))
+				var s := lerpf(0.02, 0.9, u)
+				var tr := edge.frame_vec(s, 0)
+				var nr := edge.frame_vec(s, 2) * up_sign
+				var sp := (edge.point(minf(s + 0.02, 1.0)) - edge.point(maxf(s - 0.02, 0.0))).normalized()
+				var dir := (tr + sp * 0.35 * u).normalized()
+				var length := chord * lerpf(0.5, 0.36, u) * (1.0 if side > 0.0 else 0.85)
+				var cs := edge.chain_s(s)
+				var bone_r := ctx.bone_radius_at(chain[mini(int(cs), n_b - 1)], edge.point(s))
+				_feather(ctx, buf, edge.point(s) - tr * bone_r * 1.2, dir, nr * side, length, length * 0.42, slot, a.part_id, idx,
+					chain, cs, parent, 0.5 * pow(1.0 - u, 3.0), s, bone_r * 0.95 + chord * 0.012, ctx.lod)
+				idx += 1
 
 
 static func tail(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, chain: PackedInt32Array) -> void:

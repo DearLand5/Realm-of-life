@@ -180,10 +180,10 @@ func _apply_test_pose(v: CreatureVisual) -> void:
 					ang = -30.0
 			&"wing":
 				if b.segment == 0:
-					ang = 38.0 * float(b.side)
+					ang = -38.0 * float(b.side)
 					axis = Vector3.FORWARD
 				elif b.segment == 1:
-					ang = -18.0 * float(b.side)
+					ang = 18.0 * float(b.side)
 					axis = Vector3.FORWARD
 			&"tentacle":
 				ang = 22.0

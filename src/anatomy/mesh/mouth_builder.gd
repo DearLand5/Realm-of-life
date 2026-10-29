@@ -132,10 +132,10 @@ static func _beak(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 	var up_h: Vector3 = f["up"]
 	var up := (up_h - fwd * up_h.dot(fwd))
 	up = up.normalized() if up.length_squared() > 1e-6 else MeshKit.frame(fwd, Vector3.UP).z
-	var length := maxf(a.size, r * 0.6) * 1.25
-	var base_r := r * 1.0
+	var length := maxf(a.size, r) * 1.9
+	var base_r := r * 0.98
 	var slot := ctx.slot(a.covering)
-	var o := a.transform.origin - fwd * r * 0.55
+	var o := a.transform.origin - fwd * r * 0.75
 	var rings := MeshLod.seg(ctx.lod, 10, 3)
 	# Upper mandible: hooked down at the tip.
 	AppendageBuilder.arc_cone(ctx, ctx.buffer(CreatureBuildContext.KIND_HARD), o + up * r * 0.12, fwd, -up, length, base_r * 0.92,

@@ -170,13 +170,16 @@ float cv_pattern(int pat, vec3 P, float along, float ventral, float part_t) {
 		float r = 0.2 + 0.16 * v.z;
 		return 1.0 - smoothstep(r - 0.07, r + 0.07, v.x + (cv_vnoise(P * 9.0) - 0.5) * 0.08);
 	} else if (pat == P_ROSETTES) {
-		vec4 v = cv_voronoi(P * 2.6);
-		float n = cv_vnoise(P * 7.0);
-		float ring = smoothstep(0.17, 0.24, v.x) * (1.0 - smoothstep(0.31, 0.4, v.x + n * 0.06));
-		ring *= smoothstep(0.25, 0.45, n + 0.2 * v.z);
-		float inner = (1.0 - smoothstep(0.12, 0.2, v.x)) * 0.35;
+		// Broken rings of dark spots around slightly darker centres (leopard / jaguar).
+		vec3 q = P * 4.4;
+		vec4 v = cv_voronoi(q + vec3(cv_vnoise(q * 1.7) * 0.35));
+		float n = cv_vnoise(q * 3.1);
+		float rr = 0.22 + 0.06 * v.z;
+		float ring = smoothstep(rr - 0.09, rr - 0.02, v.x) * (1.0 - smoothstep(rr + 0.05, rr + 0.13, v.x + n * 0.08));
+		float gaps = smoothstep(0.3, 0.5, cv_vnoise(q * 2.3 + 13.0) + 0.25 * v.z);
+		float inner = (1.0 - smoothstep(rr - 0.12, rr - 0.04, v.x)) * 0.22;
 		float belly = 1.0 - smoothstep(0.66, 0.9, ventral);
-		return (ring + inner) * belly;
+		return (ring * gaps + inner) * belly;
 	} else if (pat == P_BANDS) {
 		float s = sin(along * 1.9 * 3.14159 + cv_vnoise(P * 2.0) * 0.8);
 		return smoothstep(-0.15, 0.25, s);
@@ -211,9 +214,15 @@ struct CvSurf {
 	float alpha;
 };
 
+// Thin-film sheen: a narrow hue shift around the base colour that grows at
+// grazing angles (beetle elytra, fish flanks, starling feathers).
 vec3 cv_iridescent(vec3 base, float amount, float ndv, vec3 P) {
-	vec3 film = 0.5 + 0.5 * cos(6.28318 * (vec3(0.0, 0.33, 0.67) + ndv * 1.7 + P.x * 0.35 + P.z * 0.2));
-	return mix(base, base * 0.45 + film * (0.35 + 0.6 * dot(base, vec3(0.33))), amount);
+	float phase = ndv * 1.3 + P.x * 0.15 + P.z * 0.1;
+	vec3 film = 0.5 + 0.5 * cos(6.28318 * (vec3(0.0, 0.33, 0.67) + phase));
+	float lum = max(dot(base, vec3(0.3, 0.59, 0.11)), 0.02);
+	vec3 tinted = mix(base, film * lum * 1.6, 0.55);
+	float k = amount * (0.2 + 0.8 * pow(1.0 - ndv, 1.5)) * 0.7;
+	return mix(base, tinted, clamp(k, 0.0, 1.0));
 }
 
 // Full look of one covering slot at a surface point.
@@ -252,15 +261,15 @@ CvSurf cv_slot_surface(int slot, vec3 rest, float along, float ventral, float pa
 		s.sss = 0.35;
 		s.rim = 0.08;
 	} else if (type == T_SCALES) {
-		vec4 v = cv_voronoi(Pb * vec3(26.0, 26.0, 20.0) / max(thick, 0.3));
-		float dome = 1.0 - smoothstep(0.0, 0.55, v.x);
-		float edge = smoothstep(0.0, 0.12, v.y - v.x);
-		s.height = dome * 0.8 + edge * 0.4;
-		s.bump = 0.9;
-		s.albedo *= mix(0.68, 1.05, edge) * (0.92 + 0.16 * v.z);
-		s.rough = 0.38;
+		vec4 v = cv_voronoi(Pb * vec3(22.0, 22.0, 17.0) / max(thick, 0.3));
+		float dome = 1.0 - smoothstep(0.0, 0.6, v.x);
+		float edge = smoothstep(0.0, 0.1, v.y - v.x);
+		s.height = dome * 0.7 + edge * 0.3;
+		s.bump = 0.5;
+		s.albedo *= mix(0.8, 1.03, edge) * (0.95 + 0.1 * v.z);
+		s.rough = 0.36;
 		s.spec = 0.55;
-		s.rim = 0.12;
+		s.rim = 0.1;
 	} else if (type == T_PLATES) {
 		vec4 v = cv_voronoi(Pb * 7.0 / max(thick, 0.3));
 		float groove = smoothstep(0.0, 0.07, v.y - v.x);

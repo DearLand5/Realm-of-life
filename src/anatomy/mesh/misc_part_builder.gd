@@ -25,7 +25,9 @@ static func gill(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 	var out := a.transform.basis.y.normalized()
 	var up := (Vector3.UP - out * Vector3.UP.dot(out))
 	up = up.normalized() if up.length_squared() > 1e-6 else b.basis.z
-	var height := size * 0.75
+	# A single slit reads as a bony-fish operculum: longer and more curved.
+	var height := size * (1.1 if slits == 1 else 0.75)
+	var bow := 0.32 if slits == 1 else 0.18
 	var spacing := size * 0.22
 	var n := 7 if ctx.lod == 0 else 5
 	for k in slits:
@@ -34,7 +36,7 @@ static func gill(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 		var h := height * (1.0 - 0.12 * float(k))
 		for i in n:
 			var v := float(i) / float(n - 1) * 2.0 - 1.0
-			guesses.append(c + up * (v * h * 0.5) - back * ((1.0 - v * v) * h * 0.18))
+			guesses.append(c + up * (v * h * 0.5) - back * ((1.0 - v * v) * h * bow))
 		var pr: Array = SurfaceDecal.project_polyline(ctx, guesses, size * 3.0)
 		SurfaceDecal.strip(ctx, pr[0], pr[1], maxf(size * 0.035, ctx.cell * 0.05), a.part_id, bone)
 

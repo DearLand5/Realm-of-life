@@ -60,14 +60,19 @@ static func build_data(model: AnatomyModel, lod: int) -> CreatureMeshData:
 
 	# 3. Tubes.
 	var body := ctx.buffer(CreatureBuildContext.KIND_BODY)
+	var membranes := _membrane_subtypes(model)
 	for a in model.accessories:
 		if a.type != &"tube":
 			continue
 		var chain := _bones_param(a.params.get("bones"))
 		if chain.is_empty():
 			continue
+		# Fins and insect wings are pure membranes; feathered arms hide under coverts.
+		var sub: String = membranes.get(a.instance, "")
+		if sub == "fin" or sub == "insect":
+			continue
 		var hard := HARD_COVERINGS.has(ctx.covering_type(model.bones[chain[0]].covering))
-		TubeBuilder.chain_tube(ctx, body, chain, 0.08 if hard else 0.3)
+		TubeBuilder.chain_tube(ctx, body, chain, 0.08 if hard else 0.3, 0.7 if sub == "feather" else 1.0)
 	for chain in lod_tubes:
 		var root_flare := 0.3 if model.bones[chain[0]].instance != model.bones[maxi(model.bones[chain[0]].parent, 0)].instance else 0.0
 		TubeBuilder.chain_tube(ctx, body, chain, root_flare)
@@ -113,6 +118,19 @@ static func _collect_lod_tubes(m: AnatomyModel, thr: float, exclude: Dictionary,
 				exclude[bi] = true
 		if not chain.is_empty():
 			out.append(chain)
+
+
+## instance index -> "fin" | "insect" | "feather" | "membrane" for wing/fin parts.
+static func _membrane_subtypes(m: AnatomyModel) -> Dictionary:
+	var out := {}
+	for a in m.accessories:
+		if a.type != &"membrane":
+			continue
+		var sub := str(a.params.get("subtype", "membrane"))
+		if sub in ["pectoral", "dorsal", "pelvic", "caudal", "anal"]:
+			sub = "fin"
+		out[a.instance] = sub
+	return out
 
 
 static func _bones_param(v) -> PackedInt32Array:

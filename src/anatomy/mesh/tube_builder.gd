@@ -8,7 +8,7 @@ extends RefCounted
 ## Builds a tube along `chain` (bone indices, root first).
 ##   flare  — radius boost near the base, imitating the SDF fillet
 ##   cell   — current grid cell size (side count adapts to the radius)
-static func chain_tube(ctx: CreatureBuildContext, buf: MeshBuffer, chain: PackedInt32Array, flare: float = 0.0) -> void:
+static func chain_tube(ctx: CreatureBuildContext, buf: MeshBuffer, chain: PackedInt32Array, flare: float = 0.0, radius_scale: float = 1.0) -> void:
 	var m := ctx.model
 	var rig := ctx.rig
 	if chain.is_empty():
@@ -34,7 +34,7 @@ static func chain_tube(ctx: CreatureBuildContext, buf: MeshBuffer, chain: Packed
 		for q in steps + (1 if last else 0):
 			var u := float(q) / float(steps)
 			var c := _catmull(_pt(pts, k - 1), pts[k], pts[k + 1], _pt(pts, k + 2), u)
-			var r := lerpf(rad[k], rad[k + 1], u)
+			var r := lerpf(rad[k], rad[k + 1], u) * radius_scale
 			var s := float(k) + u
 			var sl := s_len + u * b.length
 			var fu := clampf(sl / maxf(total_len * 0.3, 1e-6), 0.0, 1.0)
