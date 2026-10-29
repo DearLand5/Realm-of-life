@@ -28,8 +28,13 @@ static func build(ctx: CreatureBuildContext, a: AnatomyModel.Accessory) -> void:
 		var bb := MeshKit.frame(axis, b.basis.z)
 		f = {"up": bb.z, "fwd": axis, "side": bb.x, "ground": 0.0}
 	if b.thin:
-		if ft == "claw" or ft == "hand" or ft == "pad":
-			_hooks(ctx, a, e, axis, r, bone)
+		var leg_cov := ctx.covering_type(b.covering)
+		if walking and leg_cov != &"chitin" and leg_cov != &"bristles" and ft != "web":
+			_thin_toes(ctx, a, e, r, f, bone)   # birds, small vertebrates
+		elif ft == "claw" or ft == "hand" or ft == "pad":
+			_hooks(ctx, a, e, axis, r, bone)    # arthropod tarsi
+		elif ft == "web":
+			_web(ctx, a, e, r * 1.4, f, maxi(digits, 3), bone, walking)
 		return
 	match ft:
 		"hoof":
@@ -109,6 +114,32 @@ static func _paw(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, e: Vector
 			var tc := center + dir * r * 1.15 + up * (-r * 0.12)
 			var tb := Basis(dir.cross(up).normalized(), up, -dir).orthonormalized()
 			MeshKit.ellipsoid(body, Transform3D(tb, tc), Vector3(toe_r, toe_r * 0.8, toe_r * 1.15), MeshLod.seg(ctx.lod, 10, 5), MeshLod.seg(ctx.lod, 6, 3), st, bi, MeshKit.W1)
+
+
+## Thin bird-like toes: three spread forward, one (hallux) back, each with a claw.
+static func _thin_toes(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, e: Vector3, r: float, f: Dictionary, bone: int) -> void:
+	var up: Vector3 = f["up"]
+	var fwd: Vector3 = f["fwd"]
+	var side: Vector3 = f["side"]
+	var g: float = f["ground"]
+	var slot := ctx.slot(ctx.model.bones[bone].covering)
+	var st := MeshKit.body_style(slot, a.part_id, ctx.rig.along_on_bone(bone, e), 0.9)
+	var bi := MeshKit.one_bone(bone)
+	var body := ctx.buffer(CreatureBuildContext.KIND_BODY)
+	var base := Vector3(e.x, g + r * 0.6, e.z)
+	var angles: Array[float] = [-32.0, 0.0, 32.0, 180.0]
+	for k in angles.size():
+		var ang := deg_to_rad(angles[k])
+		var dir := (fwd * cos(ang) + side * sin(ang)).normalized()
+		var len_k := r * (4.2 if k == 1 else (3.3 if k < 3 else 2.4))
+		var sw := MeshKit.Sweep.new()
+		for i in 3:
+			var t := float(i) / 2.0
+			sw.add_ring(base + dir * (len_k * t) - up * (r * 0.45 * t), r * lerpf(0.75, 0.5, t), 0.8, dir.cross(up), bi, MeshKit.W1, t)
+		MeshKit.sweep(body, sw, st, MeshLod.tube_sides(ctx.lod, 0.2), 2)
+		if ctx.detail >= 1:
+			AppendageBuilder.cone(ctx, base + dir * len_k - up * r * 0.45, (dir - up * 0.3).normalized(), r * 1.3, r * 0.4,
+				AppendageBuilder.CODE_CLAW, slot, a.part_id, bone, 0.6, -up, 0.8)
 
 
 ## Paired tarsal hooks at the tip of thin arthropod legs.

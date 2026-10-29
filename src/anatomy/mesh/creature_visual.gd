@@ -134,6 +134,7 @@ func _make_instance(node_name: String) -> MeshInstance3D:
 
 
 func _update_materials() -> void:
+	var translucent := CreatureMaterials.body_kind(model) == &"body_translucent"
 	if _body != null:
 		_body.material_override = CreatureMaterials.material(&"xray") if _xray else CreatureMaterials.material(CreatureMaterials.body_kind(model))
 		_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if _xray else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -149,8 +150,10 @@ func _update_materials() -> void:
 		else:
 			mi.material_override = CreatureMaterials.material(kind)
 			mi.visible = true
-			var thin: bool = kind == CreatureBuildContext.KIND_MEMBRANE or kind == CreatureBuildContext.KIND_GLOW
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if thin else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			# Translucent bodies cast no shadow, so neither do the parts inside them.
+			var no_shadow: bool = kind == CreatureBuildContext.KIND_MEMBRANE or kind == CreatureBuildContext.KIND_GLOW \
+				or (translucent and kind != CreatureBuildContext.KIND_HARD)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if no_shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	if _shadow != null:
 		_shadow.visible = shadow_enabled and not _xray
 

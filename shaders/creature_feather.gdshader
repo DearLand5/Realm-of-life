@@ -40,15 +40,21 @@ void fragment() {
 	float inv_c = max(cv_individual.y, 1e-4);
 	vec3 Pb = v_rest * inv_c;
 	vec3 P = Pb * S.x + cv_seed_offset();
+	// Plumage patterns are defined per feather (t = base..tip), which is how
+	// real wing bars, barring and pale tips arise.
 	float m;
+	float edge_noise = (cv_vnoise(vec3(v_idx * 3.1, t * 6.0, s * 2.0)) - 0.5) * 0.08;
 	if (pat == P_BANDS) {
-		m = smoothstep(-0.2, 0.3, sin((t * 2.2 + along_wing * 0.6) * 3.14159 * S.x));
+		// Pale tip bar on every feather -> continuous wing bars across rows.
+		m = smoothstep(0.66, 0.74, t + edge_noise) * (1.0 - smoothstep(0.9, 0.98, t) * 0.4);
 	} else if (pat == P_RINGS || pat == P_STRIPES) {
-		m = smoothstep(0.55, 0.85, sin(t * 9.0 * S.x * 3.14159) * 0.5 + 0.5);
+		m = smoothstep(0.55, 0.8, sin((t * 4.5 * S.x + abs(s) * 0.4) * 3.14159) * 0.5 + 0.5);
+	} else if (pat == P_SPOTS) {
+		m = 1.0 - smoothstep(0.1, 0.16, length(vec2(t - 0.78, s * 0.35)));
 	} else if (pat == P_GRADIENT) {
 		m = smoothstep(0.2, 1.0, t * 0.7 + along_wing * 0.3);
 	} else if (pat == P_COUNTERSHADE) {
-		m = FRONT_FACING ? 0.0 : 0.85;
+		m = FRONT_FACING ? smoothstep(0.75, 0.95, t) * 0.3 : 0.85;
 	} else {
 		m = cv_pattern(pat, P, t / inv_c, 0.5, t);
 	}

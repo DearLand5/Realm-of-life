@@ -258,7 +258,7 @@ static func _bird() -> Genome:
 	wing.set_param("wing_type", "feather")
 	wing.set_param("chord", 0.62)
 	wing.covering = 2
-	att(plan, wing, t, 0.75, 62.0, 0.85, 1, -56.0, 0.0, 0.0, "Крыло")
+	att(plan, wing, t, 0.75, 62.0, 0.85, 1, -46.0, 0.0, 0.0, "Крыло")
 	var leg := chain(&"limb", 0.014, [[0.06, 0.012, 0, 22], [0.07, 0.008, 0, -34], [0.03, 0.006, 0, 62]], &"walk")
 	leg.set_param("foot", "claw")
 	leg.covering = 1
@@ -532,7 +532,7 @@ static func _jellyfish() -> Genome:
 		CoveringDef.make(&"membrane", Color(0.95, 0.7, 0.9), Color(0.7, 0.95, 1.0), &"none"),
 	]
 	plan.biology = {"habitat": "water", "reproduction_mode": "sexual", "reproduction_method": "eggs", "diet": "filter"}
-	var t := plan.add_part(_set_muscle(chain(&"torso", 0.14, [[0.05, 0.19], [0.08, 0.17], [0.07, 0.11], [0.03, 0.03]]), 0.3, 0.3))
+	var t := plan.add_part(_set_muscle(chain(&"torso", 0.15, [[0.04, 0.2], [0.06, 0.185], [0.05, 0.12], [0.025, 0.035]]), 0.3, 0.3))
 	var tent := chain(&"tentacle", 0.008, [[0.14, 0.007, 0, -4], [0.14, 0.005, 0, 4], [0.14, 0.004, 0, -4], [0.12, 0.002, 0, 3]], &"attack")
 	tent.covering = 1
 	tent.set_param("suckers", false)
