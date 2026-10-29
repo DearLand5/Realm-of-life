@@ -37,6 +37,9 @@ var dismissible: bool = true
 var show_close: bool = true
 ## Stack footer buttons vertically on narrow screens.
 var stack_buttons_when_narrow: bool = true
+## Use the full available height and let `content` children expand vertically
+## (for dialogs whose content scrolls by itself, e.g. a SearchList).
+var expand_content: bool = false
 
 ## Custom content goes here (VBox inside the scroll area, below the body text).
 var content: VBoxContainer
@@ -225,9 +228,9 @@ func _notification(what: int) -> void:
 func _apply_theme_bits() -> void:
 	_scrim.color = UITheme.color(self, &"scrim")
 	var gap := UITheme.k(self, &"gap_large")
-	(_panel.get_child(0) as VBoxContainer).add_theme_constant_override("separation", gap)
-	content.add_theme_constant_override("separation", gap)
-	footer.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(_panel.get_child(0) as VBoxContainer, "separation", gap)
+	UITheme.override_const(content, "separation", gap)
+	UITheme.override_const(footer, "separation", UITheme.k(self, &"gap"))
 
 
 func _layout() -> void:
@@ -237,10 +240,10 @@ func _layout() -> void:
 	var insets := SafeArea.insets_for(self)
 	var sc := UITheme.scale_of(self)
 	var margin := 16.0 * sc
-	_margin.add_theme_constant_override("margin_left", int(insets.x + margin))
-	_margin.add_theme_constant_override("margin_top", int(insets.y + margin))
-	_margin.add_theme_constant_override("margin_right", int(insets.z + margin))
-	_margin.add_theme_constant_override("margin_bottom", int(insets.w + margin))
+	UITheme.override_const(_margin, "margin_left", int(insets.x + margin))
+	UITheme.override_const(_margin, "margin_top", int(insets.y + margin))
+	UITheme.override_const(_margin, "margin_right", int(insets.z + margin))
+	UITheme.override_const(_margin, "margin_bottom", int(insets.w + margin))
 	var avail := vp - Vector2(insets.x + insets.z, insets.y + insets.w) - Vector2.ONE * margin * 2.0
 	var portrait := vp.y > vp.x
 	var fill := size_class == SizeClass.FULL or (portrait and size_class == SizeClass.LARGE)
@@ -249,8 +252,11 @@ func _layout() -> void:
 	if stack_buttons_when_narrow:
 		_set_footer_vertical(w < 420.0 * sc and footer.get_child_count() > 1)
 	_panel.custom_minimum_size.x = w
-	_max_h = avail.y
-	_fill_height = fill
+	_max_h = avail.y if not (expand_content and not fill) else minf(avail.y, 640.0 * sc)
+	_fill_height = fill or expand_content
+	var inner := _scroll.get_child(0) as Control
+	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL if expand_content else Control.SIZE_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL if expand_content else Control.SIZE_FILL
 	_update_scroll_height()
 
 
@@ -284,7 +290,7 @@ func _set_footer_vertical(v: bool) -> void:
 	parent.add_child(nf)
 	parent.move_child(nf, idx)
 	footer = nf
-	footer.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(footer, "separation", UITheme.k(self, &"gap"))
 
 
 func _unhandled_input(event: InputEvent) -> void:

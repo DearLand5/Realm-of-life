@@ -93,7 +93,7 @@ func _refresh() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _box != null:
-		_box.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(_box, "separation", UITheme.k(self, &"gap"))
 		var t := UITheme.k(self, &"touch")
 		if vertical:
 			custom_minimum_size = Vector2(t * 1.5, 0)

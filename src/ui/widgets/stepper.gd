@@ -72,7 +72,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _field != null:
 		_field.custom_minimum_size.x = UITheme.k(self, &"touch") * 1.6
-		add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(self, "separation", UITheme.k(self, &"gap"))
 
 
 ## Sets the value (snapped, clamped) without emitting signals.

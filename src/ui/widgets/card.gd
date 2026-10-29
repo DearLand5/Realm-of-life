@@ -38,7 +38,7 @@ func _init() -> void:
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.alignment = BoxContainer.ALIGNMENT_CENTER
-	titles.add_theme_constant_override("separation", 0)
+	UITheme.override_const(titles, "separation", 0)
 	header.add_child(titles)
 	_title = Label.new()
 	_title.theme_type_variation = &"SubheaderLabel"
@@ -80,6 +80,6 @@ func _update_header() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and content != null:
 		var gap := UITheme.k(self, &"gap_large")
-		(get_child(0) as VBoxContainer).add_theme_constant_override("separation", gap)
-		content.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
-		header.add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(get_child(0) as VBoxContainer, "separation", gap)
+		UITheme.override_const(content, "separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(header, "separation", UITheme.k(self, &"gap_large"))

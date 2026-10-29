@@ -163,3 +163,11 @@ static func series(c: Control, i: int) -> Color:
 	if c.has_theme_color(key, TYPE):
 		return c.get_theme_color(key, TYPE)
 	return UIPalette.series_color(i, colorblind_mode())
+
+
+## Sets a theme constant override only when it changes. Overriding re-sends
+## NOTIFICATION_THEME_CHANGED synchronously, so widgets that restyle themselves
+## in that notification must use this to avoid infinite recursion.
+static func override_const(c: Control, name: StringName, v: int) -> void:
+	if not c.has_theme_constant_override(name) or c.get_theme_constant(name) != v:
+		c.add_theme_constant_override(name, v)

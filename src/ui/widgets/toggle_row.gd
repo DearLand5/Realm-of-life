@@ -64,7 +64,7 @@ func _init() -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 0)
+	UITheme.override_const(v, "separation", 0)
 	_title = Label.new()
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_desc = Label.new()
@@ -94,7 +94,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _switch != null:
 		custom_minimum_size.y = UITheme.k(self, &"touch")
-		(get_child(0) as HBoxContainer).add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(get_child(0) as HBoxContainer, "separation", UITheme.k(self, &"gap_large"))
 
 
 func _gui_input(event: InputEvent) -> void:

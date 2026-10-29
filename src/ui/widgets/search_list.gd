@@ -92,9 +92,9 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _rows != null:
-		_rows.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
-		add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
-		(_search.get_parent() as HBoxContainer).add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(_rows, "separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(self, "separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(_search.get_parent() as HBoxContainer, "separation", UITheme.k(self, &"gap"))
 
 
 ## Replaces the items (Array of Dictionaries, see class doc).

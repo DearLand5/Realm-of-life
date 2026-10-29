@@ -47,6 +47,7 @@ var _hold := -1.0
 var _press_pos := Vector2.ZERO
 var _long_fired := false
 var _bubble: Control
+var _updating := false
 
 
 static func make(icon_id: StringName, label: String = "", tooltip: String = "", variation: StringName = &"") -> IconButton:
@@ -72,9 +73,11 @@ func _ready() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_THEME_CHANGED:
+	if what == NOTIFICATION_THEME_CHANGED and not _updating:
+		_updating = true
 		_update_icon()
 		_update_layout()
+		_updating = false
 	elif what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_VISIBILITY_CHANGED:
 		_hide_bubble()
 
@@ -96,12 +99,15 @@ func _update_layout() -> void:
 	if vertical:
 		icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		add_theme_font_size_override("font_size", UITheme.font_size(self, &"small"))
+		var fs := UITheme.font_size(self, &"small")
+		if not has_theme_font_size_override("font_size") or get_theme_font_size("font_size") != fs:
+			add_theme_font_size_override("font_size", fs)
 		custom_minimum_size = Vector2(t * 1.3, t * 1.35) if text != "" else Vector2(t, t)
 	else:
 		icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
-		remove_theme_font_size_override("font_size")
+		if has_theme_font_size_override("font_size"):
+			remove_theme_font_size_override("font_size")
 		custom_minimum_size = Vector2(t, t)
 
 

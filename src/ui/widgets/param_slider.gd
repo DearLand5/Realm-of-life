@@ -121,7 +121,7 @@ func _notification(what: int) -> void:
 		var t := UITheme.k(self, &"touch")
 		_field.custom_minimum_size = Vector2(t * 2.3, 0)
 		_slider.custom_minimum_size.y = t
-		add_theme_constant_override("separation", 0)
+		UITheme.override_const(self, "separation", 0)
 
 
 func _configure() -> void:

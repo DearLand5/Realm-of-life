@@ -57,8 +57,8 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _header != null:
 		var gap := UITheme.k(self, &"gap")
-		content.add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
-		add_theme_constant_override("separation", gap)
+		UITheme.override_const(content, "separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(self, "separation", gap)
 		_header.add_theme_font_override("font", UITheme.bold_font(self))
 		_place_chevron.call_deferred()
 	elif what == NOTIFICATION_RESIZED:

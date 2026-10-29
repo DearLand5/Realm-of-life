@@ -76,9 +76,9 @@ func _notification(what: int) -> void:
 		_hex.custom_minimum_size.x = t * 2.6
 		_sv.custom_minimum_size = Vector2(0, 170.0 * sc)
 		_hue.custom_minimum_size = Vector2(0, t * 0.8)
-		add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
-		_swatches.add_theme_constant_override("h_separation", UITheme.k(self, &"gap"))
-		_swatches.add_theme_constant_override("v_separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(self, "separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(_swatches, "h_separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(_swatches, "v_separation", UITheme.k(self, &"gap"))
 		_rebuild_swatches()
 
 

@@ -51,7 +51,7 @@ func _update() -> void:
 func _set_margin(name: StringName, v: float) -> void:
 	var iv := int(ceilf(v))
 	if get_theme_constant(name) != iv:
-		add_theme_constant_override(name, iv)
+		UITheme.override_const(self, name, iv)
 
 
 ## Insets (left, top, right, bottom) in the canvas units of `node`'s viewport.

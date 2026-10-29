@@ -29,6 +29,7 @@ var _star: IconButton
 var _trail: HBoxContainer
 var _press_pos := Vector2(-1, -1)
 var _last_tap := -10.0
+var _styling := false
 
 
 static func make(id: Variant, title: String, subtitle: String = "", icon_id: StringName = &"") -> ListRow:
@@ -52,7 +53,7 @@ func _init() -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 0)
+	UITheme.override_const(v, "separation", 0)
 	h.add_child(v)
 	_title = Label.new()
 	_title.theme_type_variation = &"SubheaderLabel"
@@ -108,11 +109,13 @@ func add_action(action_id: StringName, icon_id: StringName, tooltip: String, var
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_THEME_CHANGED and _title != null:
+	if what == NOTIFICATION_THEME_CHANGED and _title != null and not _styling:
+		_styling = true
 		_apply_style()
-		(get_child(0) as HBoxContainer).add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
+		UITheme.override_const(get_child(0) as HBoxContainer, "separation", UITheme.k(self, &"gap_large"))
 		custom_minimum_size.y = UITheme.k(self, &"touch") * 1.25
 		_update_star()
+		_styling = false
 
 
 func _apply_style() -> void:

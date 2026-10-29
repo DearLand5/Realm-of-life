@@ -50,14 +50,14 @@ static func items_from(ids: Array, labels: Array) -> Array:
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(self, "separation", UITheme.k(self, &"gap"))
 	if title != "":
 		_title_label = Label.new()
 		_title_label.text = title
 		add_child(_title_label)
 	if _effective_mode() == Mode.SEGMENTED:
 		_segments = HBoxContainer.new()
-		_segments.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(_segments, "separation", UITheme.k(self, &"gap"))
 		add_child(_segments)
 		for it in items:
 			var b := IconButton.make(it.get("icon", &""), str(it.get("label", "")), str(it.get("description", "")), &"ChipButton")

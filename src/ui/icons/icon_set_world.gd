@@ -7,7 +7,8 @@ const NAMES: Array[StringName] = [
 	&"dna", &"leaf", &"paw", &"bug", &"fish", &"bird", &"sun", &"moon", &"cloud", &"rain", &"snow",
 	&"wind", &"thermometer", &"drop", &"test", &"experiment", &"library", &"group", &"person",
 	&"follow", &"observer", &"symmetry", &"claw", &"jump", &"sound", &"zzz", &"dive", &"egg",
-	&"tree", &"mountain", &"cell", &"skull",
+	&"tree", &"mountain", &"cell", &"skull", &"worm", &"spider", &"octopus", &"jellyfish", &"starfish",
+	&"shell",
 ]
 
 
@@ -186,6 +187,59 @@ static func draw(p: IconPainter, id: StringName) -> bool:
 			p.disc(Vector2(8.8, 11.8), 2.0)
 			p.disc(Vector2(15.2, 11.8), 2.0)
 			p.line(Vector2(12, 20.5), Vector2(12, 17.5))
+		&"worm":
+			var pts := PackedVector2Array()
+			for i in 25:
+				var t := float(i) / 24.0
+				pts.append(Vector2(lerpf(3.0, 19.5, t), 13.0 + sin(t * TAU * 1.25) * 4.0))
+			p.width = 3.2
+			p.poly(pts)
+			p.disc(Vector2(20.2, 13.0 + sin(TAU * 1.25) * 4.0), 2.3)
+		&"spider":
+			p.disc(Vector2(12, 14.5), 3.6)
+			p.disc(Vector2(12, 9.0), 2.2)
+			for sgn in [-1.0, 1.0]:
+				var k := float(sgn)
+				for j in 4:
+					var y := 11.5 + float(j) * 2.0
+					var knee := Vector2(12 + k * (6.5 + float(j) * 0.4), y - 3.5 + float(j) * 0.8)
+					var foot := Vector2(12 + k * (9.5 + float(j) * 0.3), y + 2.5 + float(j) * 1.4)
+					p.poly(PackedVector2Array([Vector2(12 + k * 2.5, y), knee, foot]))
+		&"octopus":
+			var head := IconPainter.arc_points(Vector2(12, 10), 6.5, PI, TAU, 18)
+			p.poly(head)
+			p.line(Vector2(5.5, 10), Vector2(5.5, 13))
+			p.line(Vector2(18.5, 10), Vector2(18.5, 13))
+			for j in 4:
+				var x0 := 7.0 + float(j) * 3.33
+				var tent := PackedVector2Array()
+				for i in 9:
+					var t := float(i) / 8.0
+					tent.append(Vector2(x0 + sin(t * PI * 1.6 + float(j)) * 1.6, lerpf(13.0, 21.0, t)))
+				p.poly(tent)
+			p.disc(Vector2(9.7, 9.5), 1.0)
+			p.disc(Vector2(14.3, 9.5), 1.0)
+		&"jellyfish":
+			var bell := IconPainter.arc_points(Vector2(12, 11), 8.0, PI, TAU, 20)
+			p.poly(bell, true)
+			for j in 4:
+				var x0 := 6.5 + float(j) * 3.66
+				var tr := PackedVector2Array()
+				for i in 9:
+					var t := float(i) / 8.0
+					tr.append(Vector2(x0 + sin(t * TAU + float(j)) * 0.9, lerpf(11.5, 21.5 - absf(1.5 - float(j)) * 1.5, t)))
+				p.poly(tr)
+		&"starfish":
+			p.poly(IconPainter.star_points(Vector2(12, 12.6), 10.0, 4.6), true)
+			p.disc(Vector2(12, 12.6), 1.3)
+		&"shell":
+			var dome := IconPainter.arc_points(Vector2(11, 15), 7.5, PI, TAU, 20)
+			p.poly(dome, true)
+			p.poly(PackedVector2Array([Vector2(7.2, 15), Vector2(9, 10.5), Vector2(13, 10.5), Vector2(14.8, 15)]))
+			p.line(Vector2(11, 7.5), Vector2(11, 10.5))
+			p.ring(Vector2(20.3, 13.2), 1.9)
+			p.line(Vector2(6, 15), Vector2(5, 18.5))
+			p.line(Vector2(16, 15), Vector2(17, 18.5))
 		_:
 			return false
 	return true

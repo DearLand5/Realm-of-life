@@ -36,7 +36,7 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED and _box != null:
-		_box.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+		UITheme.override_const(_box, "separation", UITheme.k(self, &"gap"))
 		_layout.call_deferred()
 	elif what == NOTIFICATION_RESIZED:
 		_layout.call_deferred()
@@ -104,7 +104,7 @@ func _make_toast(text: String, level: StringName) -> PanelContainer:
 		p.add_theme_stylebox_override("panel", sb)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", UITheme.k(self, &"gap_large"))
+	UITheme.override_const(h, "separation", UITheme.k(self, &"gap_large"))
 	p.add_child(h)
 	var iv := IconView.make(LEVEL_ICONS[level], UITheme.k(self, &"icon"), &"")
 	iv.color = col

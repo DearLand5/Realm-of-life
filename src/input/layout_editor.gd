@@ -124,13 +124,13 @@ func _build_panel() -> void:
 	_panel.theme_type_variation = &"DialogPanel"
 	add_child(_panel)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(v, "separation", UITheme.k(self, &"gap"))
 	_panel.add_child(v)
 	var head := HBoxContainer.new()
 	v.add_child(head)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_theme_constant_override("separation", 0)
+	UITheme.override_const(titles, "separation", 0)
 	head.add_child(titles)
 	var cap := Label.new()
 	cap.theme_type_variation = &"CaptionLabel"
@@ -145,7 +145,7 @@ func _build_panel() -> void:
 		_place_panel())
 	head.add_child(move)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(row, "separation", UITheme.k(self, &"gap"))
 	v.add_child(row)
 	var minus := RepeatButton.make_repeat(&"minus", tr("Меньше"))
 	minus.step.connect(func() -> void: _resize(-SIZE_STEP))
@@ -171,7 +171,7 @@ func _build_panel() -> void:
 		_changed())
 	v.add_child(_opacity)
 	var foot := HBoxContainer.new()
-	foot.add_theme_constant_override("separation", UITheme.k(self, &"gap"))
+	UITheme.override_const(foot, "separation", UITheme.k(self, &"gap"))
 	v.add_child(foot)
 	var reset_all := IconButton.make(&"trash", tr("Сбросить всё"), "", &"FlatButton")
 	reset_all.pressed.connect(_confirm_reset_all)
