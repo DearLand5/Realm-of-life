@@ -11,13 +11,13 @@ const GROUND: Array[Color] = [
 	Color(0.84, 0.77, 0.58),  # BEACH
 	Color(0.82, 0.66, 0.43),  # DESERT
 	Color(0.63, 0.58, 0.30),  # SAVANNA
-	Color(0.37, 0.52, 0.19),  # GRASSLAND
-	Color(0.23, 0.37, 0.14),  # TEMPERATE_FOREST
-	Color(0.15, 0.32, 0.10),  # RAINFOREST
-	Color(0.23, 0.31, 0.18),  # TAIGA
+	Color(0.41, 0.50, 0.25),  # GRASSLAND
+	Color(0.30, 0.37, 0.18),  # TEMPERATE_FOREST
+	Color(0.22, 0.33, 0.13),  # RAINFOREST
+	Color(0.30, 0.33, 0.21),  # TAIGA
 	Color(0.47, 0.47, 0.35),  # TUNDRA
 	Color(0.27, 0.32, 0.16),  # SWAMP
-	Color(0.46, 0.43, 0.39),  # MOUNTAIN
+	Color(0.47, 0.47, 0.38),  # MOUNTAIN (alpine meadow; rock comes from slope)
 	Color(0.90, 0.92, 0.96),  # SNOW
 	Color(0.38, 0.36, 0.28),  # LAKE bed
 	Color(0.44, 0.41, 0.33),  # RIVER bed
@@ -25,7 +25,7 @@ const GROUND: Array[Color] = [
 ## How much of the ground is grass (seasonal/drought tint applies to it).
 const GRASS: Array[float] = [0.0, 0.0, 0.05, 1.0, 1.0, 0.75, 0.65, 0.55, 0.6, 0.8, 0.15, 0.0, 0.0, 0.0]
 ## Exposed rock tendency independent of slope.
-const ROCK: Array[float] = [0.0, 0.0, 0.08, 0.0, 0.0, 0.0, 0.0, 0.05, 0.12, 0.0, 0.55, 0.1, 0.0, 0.1]
+const ROCK: Array[float] = [0.0, 0.0, 0.08, 0.0, 0.0, 0.0, 0.0, 0.05, 0.12, 0.0, 0.4, 0.1, 0.0, 0.1]
 const FAR_SHORE := 50.0
 
 var res: int = 0
@@ -79,7 +79,7 @@ static func build(w: WorldData) -> TerrainAttributes:
 		cb[i] = col.b
 		ca[i] = g
 		a.rock[i] = ROCK[b]
-	var blur := maxi(1, int(round(3.0 / w.cell)))
+	var blur := maxi(1, int(round(5.0 / w.cell)))
 	GridOps.box_blur(cr, w.res, blur)
 	GridOps.box_blur(cg, w.res, blur)
 	GridOps.box_blur(cb, w.res, blur)
@@ -96,11 +96,19 @@ func _build_normals(w: WorldData) -> void:
 	normals.resize(r * r)
 	var h := w.heights
 	var e := 2.0 * w.cell
+	var nx := PackedFloat32Array()
+	var nz := PackedFloat32Array()
+	nx.resize(r * r)
+	nz.resize(r * r)
 	for iz in r:
 		var zm := maxi(iz - 1, 0) * r
 		var zp := mini(iz + 1, r - 1) * r
 		var row := iz * r
 		for ix in r:
-			var dx := h[row + mini(ix + 1, r - 1)] - h[row + maxi(ix - 1, 0)]
-			var dz := h[zp + ix] - h[zm + ix]
-			normals[row + ix] = Vector3(-dx, e, -dz).normalized()
+			nx[row + ix] = (h[row + maxi(ix - 1, 0)] - h[row + mini(ix + 1, r - 1)]) / e
+			nz[row + ix] = (h[zm + ix] - h[zp + ix]) / e
+	# A one-cell blur of the gradient removes grid-scale facets on cliffs.
+	GridOps.box_blur(nx, r, 1)
+	GridOps.box_blur(nz, r, 1)
+	for i in r * r:
+		normals[i] = Vector3(nx[i], 1.0, nz[i]).normalized()

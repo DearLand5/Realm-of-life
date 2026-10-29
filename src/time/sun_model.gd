@@ -38,3 +38,23 @@ static func moon_direction(sun_dir: Vector3, year_phase: float) -> Vector3:
 	m = m.rotated(Vector3.UP, 0.5 + year_phase * TAU * 0.3)
 	m.y = maxf(absf(m.y), 0.35)
 	return m.normalized()
+
+
+## Hour (0..24) when the sun crosses `elevation_deg` in the morning (or evening).
+## Returns 6/18 when it never does (polar day/night).
+static func hour_for_elevation(elevation_deg: float, year_phase: float, latitude_deg: float, morning: bool = true) -> float:
+	var lo := 0.0 if morning else 12.0
+	var hi := 12.0 if morning else 24.0
+	var e_lo := elevation(lo, year_phase, latitude_deg) - elevation_deg
+	var e_hi := elevation(hi, year_phase, latitude_deg) - elevation_deg
+	if signf(e_lo) == signf(e_hi):
+		return 6.0 if morning else 18.0
+	for k in 30:
+		var mid := (lo + hi) * 0.5
+		var e_mid := elevation(mid, year_phase, latitude_deg) - elevation_deg
+		if signf(e_mid) == signf(e_lo):
+			lo = mid
+			e_lo = e_mid
+		else:
+			hi = mid
+	return (lo + hi) * 0.5

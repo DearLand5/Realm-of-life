@@ -23,7 +23,7 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	var hill_oct := 3 + int(round(relief * 2.0))
 	var n_hill := _noise(seed_value + 23, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / 75.0, hill_oct, FastNoiseLite.FRACTAL_FBM)
 	n_hill.fractal_gain = 0.42 + relief * 0.16
-	var n_ridge := _noise(seed_value + 37, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.2), 5, FastNoiseLite.FRACTAL_RIDGED)
+	var n_ridge := _noise(seed_value + 37, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.27), 5, FastNoiseLite.FRACTAL_RIDGED)
 	n_ridge.fractal_gain = 0.45
 	n_ridge.domain_warp_enabled = true
 	n_ridge.domain_warp_amplitude = size * 0.05
@@ -34,10 +34,11 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	n_valley.domain_warp_amplitude = size * 0.06
 	n_valley.domain_warp_frequency = 1.0 / (size * 0.3)
 	var n_detail := _noise(seed_value + 67, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / 16.0, 2, FastNoiseLite.FRACTAL_FBM)
+	var n_rdet := _noise(seed_value + 89, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / 38.0, 3, FastNoiseLite.FRACTAL_RIDGED)
 	var n_edge := _noise(seed_value + 79, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 1.0 / (size * 0.3), 3, FastNoiseLite.FRACTAL_FBM)
 
 	var hill_amp := 4.0 + 11.0 * relief
-	var ridge_amp := max_h * mountains * 0.95
+	var ridge_amp := max_h * mountains * 0.9
 	var valley_amp := 3.0 + 9.0 * relief
 	var detail_amp := 0.25 + 0.9 * relief
 	var mask_bias := lerpf(-0.5, 0.12, mountains)
@@ -62,6 +63,8 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 			if mm > 0.0:
 				var r := (n_ridge.get_noise_2d(x, z) + 1.0) * 0.5
 				h += r * r * mm * ridge_amp
+				# Gullies and spurs on mountain flanks.
+				h += (n_rdet.get_noise_2d(x, z) + 0.3) * mm * r * (2.0 + 6.0 * relief)
 			var v := absf(n_valley.get_noise_2d(x, z))
 			h -= (1.0 - smoothstep(0.0, 0.13, v)) * valley_amp * land * (1.0 - 0.6 * mm)
 			h += n_detail.get_noise_2d(x, z) * detail_amp
@@ -72,7 +75,7 @@ static func build(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	var shift := sea - GridOps.percentile(hs, wf) if wf > 0.001 else sea - _min(hs) + 0.5
 	for i in hs.size():
 		hs[i] = _shape_coast(hs[i] + shift - sea) + sea
-	_thermal_erosion(hs, res, w.cell, 4)
+	_thermal_erosion(hs, res, w.cell, 10)
 
 
 ## Coastal profile: flat beaches just above the waterline, gentle shelves
@@ -102,34 +105,41 @@ static func _hermite(t: float, k0: float, k1: float) -> float:
 	return (t3 - 2.0 * t2 + t) * k0 + (-2.0 * t3 + 3.0 * t2) + (t3 - t2) * k1
 
 
-## Moves material down slopes steeper than the talus angle (in place).
+## Moves material down slopes steeper than the talus angle. Jacobi-style
+## (deltas into a second buffer) so no sweep direction leaves artefacts.
 static func _thermal_erosion(hs: PackedFloat32Array, res: int, cell: float, iterations: int) -> void:
-	var talus := cell * 0.85
+	var talus := cell * 0.7
+	var delta := PackedFloat32Array()
+	delta.resize(hs.size())
 	for it in iterations:
+		delta.fill(0.0)
 		for iz in range(1, res - 1):
 			var row := iz * res
 			for ix in range(1, res - 1):
 				var i := row + ix
 				var h := hs[i]
-				# Steepest of the 4 neighbours.
-				var j := i - 1
-				var d := h - hs[j]
-				var dd := h - hs[i + 1]
-				if dd > d:
-					d = dd
-					j = i + 1
-				dd = h - hs[i - res]
-				if dd > d:
-					d = dd
-					j = i - res
-				dd = h - hs[i + res]
-				if dd > d:
-					d = dd
-					j = i + res
+				var d := h - hs[i + 1]
 				if d > talus:
-					var m := (d - talus) * 0.35
-					hs[i] = h - m
-					hs[j] += m
+					var m := (d - talus) * 0.12
+					delta[i] -= m
+					delta[i + 1] += m
+				d = h - hs[i - 1]
+				if d > talus:
+					var m := (d - talus) * 0.12
+					delta[i] -= m
+					delta[i - 1] += m
+				d = h - hs[i + res]
+				if d > talus:
+					var m := (d - talus) * 0.12
+					delta[i] -= m
+					delta[i + res] += m
+				d = h - hs[i - res]
+				if d > talus:
+					var m := (d - talus) * 0.12
+					delta[i] -= m
+					delta[i - res] += m
+		for i in hs.size():
+			hs[i] += delta[i]
 
 
 static func _noise(s: int, type: int, freq: float, octaves: int, fractal: int) -> FastNoiseLite:

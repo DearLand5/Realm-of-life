@@ -31,11 +31,12 @@ func _init() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
-## climate: shared state to write (created if null). start_hour: 0..24 for new worlds.
-func setup(shared: ClimateState = null, start_hour: float = 8.0) -> void:
+## climate: shared state to write (created if null). New worlds start on
+## `start_day` (default: mid-spring, trees in leaf and blossom) at `start_hour`.
+func setup(shared: ClimateState = null, start_hour: float = 8.0, start_day: int = 4) -> void:
 	climate = shared if shared != null else ClimateState.new()
 	if climate.bio_time <= 0.0:
-		climate.bio_time = clampf(start_hour, 0.0, 24.0) * Units.SECONDS_PER_HOUR
+		climate.bio_time = float(maxi(start_day, 0)) * Units.SECONDS_PER_DAY + clampf(start_hour, 0.0, 24.0) * Units.SECONDS_PER_HOUR
 	_write_calendar(false)
 
 

@@ -6,6 +6,9 @@ var climate: ClimateState
 var time: TimeController
 var day_night: DayNightCycle
 var terrain: TerrainRenderer
+var water: WaterRenderer
+var flora: FloraRenderer
+var plants: Array[PlantSpecies] = []
 var cam: Camera3D
 var spots: Dictionary = {}
 
@@ -39,11 +42,26 @@ func _build_scene() -> void:
 	day_night = DayNightCycle.new()
 	root.add_child(day_night)
 	day_night.setup(climate, null, time)
+	if OS.get_environment("PREVIEW_NO_SHADOWS") != "":
+		day_night.sun.shadow_enabled = false
 	var t0 := Time.get_ticks_msec()
 	terrain = TerrainRenderer.new()
 	root.add_child(terrain)
 	terrain.setup(world, climate)
 	print("terrain setup: %d ms, %d tris" % [Time.get_ticks_msec() - t0, terrain.triangle_count()])
+	t0 = Time.get_ticks_msec()
+	water = WaterRenderer.new()
+	root.add_child(water)
+	water.setup(world, climate)
+	print("water setup: %d ms" % (Time.get_ticks_msec() - t0))
+	t0 = Time.get_ticks_msec()
+	plants = FloraSystem.generate_species(world, Rng.new(int(world.config["seed"]) * 31 + 7))
+	for sp in plants:
+		print("  plant %-28s %-15s h=%.1f T=%.1f M=%.2f cap=%.2f" % [sp.name, sp.form, sp.height, sp.temp_opt, sp.moist_opt, sp.capacity])
+	flora = FloraRenderer.new()
+	root.add_child(flora)
+	flora.setup(world, plants, Callable(), 8.0, climate)
+	print("flora setup: %d ms" % (Time.get_ticks_msec() - t0))
 	cam = Camera3D.new()
 	cam.far = 3000.0
 	cam.fov = 60.0
@@ -84,18 +102,43 @@ func _spot(key: String, fallback: Vector3) -> Vector3:
 	return spots[key]["pos"] if spots.has(key) else fallback
 
 
+## Eye-level view from `p`: picks the direction with the most open sight line.
+func _eye_view(name: String, p: Vector3, eye: float, hour: float, extra: Dictionary = {}) -> Dictionary:
+	var best_dir := Vector3.FORWARD
+	var best := -INF
+	for k in 24:
+		var a := float(k) / 24.0 * TAU
+		var d := Vector3(cos(a), 0, sin(a))
+		var score := 0.0
+		for j in range(1, 16):
+			var q := p + d * float(j) * 6.0
+			if not world.contains(q.x, q.z):
+				score -= 1.0
+				continue
+			var g := maxf(world.height_at(q.x, q.z), world.sea_level)
+			var line := p.y + eye - float(j) * 0.5
+			score += 1.0 if g < line else -2.0
+			if world.water_type_at(q.x, q.z) != WorldData.Water.LAND:
+				score += 0.4
+		if score > best:
+			best = score
+			best_dir = d
+	var cam := p + Vector3(0, eye, 0) - best_dir * 2.0
+	var shot := {"name": name, "pos": cam, "target": cam + best_dir * 40.0 + Vector3(0, -eye * 0.6, 0), "hour": hour}
+	shot.merge(extra, true)
+	return shot
+
+
 func _shots(set_name: String) -> Array:
 	var half := world.size * 0.5
-	var ground := _spot("ground", Vector3.ZERO)
-	var g_dir := (Vector3(-ground.x, 0, -ground.z)).normalized()
-	if g_dir.length_squared() < 0.1:
-		g_dir = Vector3.FORWARD
 	var all := [
 		{"name": "overview", "pos": Vector3(0, half * 0.75, half * 1.05), "target": Vector3(0, 0, half * 0.1), "hour": 10.5},
-		{"name": "ground", "pos": ground + Vector3(0, 3.0, 0) - g_dir * 6.0, "target": ground + g_dir * 40.0 + Vector3(0, 2, 0), "hour": 9.5},
-		{"name": "dawn", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "hour": 6.2},
+		_eye_view("ground", _spot("ground", Vector3.ZERO), 1.8, 9.5),
+		_eye_view("beach", _spot("beach", Vector3.ZERO), 2.5, 15.0),
+		_eye_view("mountain", _spot("mountain", Vector3.ZERO), 3.0, 11.0),
+		{"name": "dawn", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "sun": 3.0},
 		{"name": "noon", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "hour": 12.5},
-		{"name": "sunset", "pos": Vector3(-half * 0.6, 60, half * 0.4), "target": Vector3(0, 0, -half * 0.2), "hour": 18.6},
+		{"name": "sunset", "pos": Vector3(-half * 0.6, 60, half * 0.4), "target": Vector3(0, 0, -half * 0.2), "sun": -2.0},
 		{"name": "night", "pos": Vector3(half * 0.6, 60, half * 0.6), "target": Vector3(0, 0, 0), "hour": 23.0},
 	]
 	var out := []
@@ -107,13 +150,23 @@ func _shots(set_name: String) -> Array:
 
 
 func _render(shot: Dictionary, out_dir: String) -> void:
-	time.set_hour(float(shot.get("hour", 12.0)))
+	time.set_season(int(shot.get("season", 1)))
+	var hour := float(shot.get("hour", 12.0))
+	if shot.has("sun"):
+		# Solar elevation target: positive = morning, negative = evening.
+		var e: float = shot["sun"]
+		hour = SunModel.hour_for_elevation(absf(e), climate.year_phase + 0.03, time.latitude, e > 0.0)
+	time.set_hour(hour)
 	var pos: Vector3 = shot["pos"]
 	var target: Vector3 = shot["target"]
 	cam.look_at_from_position(pos, target)
 	cam.make_current()
-	terrain.update_focus(target.lerp(pos, 0.3))
+	terrain.update_focus(pos)
 	terrain.rebuild_pending(true)
+	var t0 := Time.get_ticks_msec()
+	flora.update_focus(pos)
+	flora.refresh_all()
+	print("%s: flora %d instances, %d draws (%d ms), terrain %d tris" % [shot["name"], flora.instance_count(), flora.draw_calls(), Time.get_ticks_msec() - t0, terrain.triangle_count()])
 	day_night.update_now()
 	for f in 3:
 		await get_tree().process_frame

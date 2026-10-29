@@ -19,7 +19,7 @@ const TINT_KEYS: Array[float] = [0.0, 0.12, 0.37, 0.62, 0.87, 1.0]
 const TINT_COLS: Array[Color] = [
 	Color(0.92, 0.95, 0.82),   # thaw, still dull
 	Color(0.96, 1.1, 0.82),    # fresh spring green
-	Color(1.04, 1.0, 0.84),    # summer
+	Color(1.02, 0.99, 0.9),    # summer
 	Color(1.18, 0.95, 0.72),   # autumn straw
 	Color(0.96, 0.88, 0.78),   # winter dead grass
 	Color(0.92, 0.95, 0.82),

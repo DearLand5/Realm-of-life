@@ -2,7 +2,7 @@ extends SceneTree
 ## Top-down biome map of a generated world (hill-shaded, with water depth,
 ## rivers and a Russian legend when a renderer is available).
 ##   godot --headless --path . -s tools/world_map.gd -- [seed] [out.png] [size] [scale] [layer]
-## layer: biome (default) | temp | moist | fert — debug views of the climate grids.
+## layer: biome (default) | temp | moist | fert | slope — debug views of the grids.
 ##   tools/shot.sh tools/world_map.gd -- 20240611 res://screenshots/world_map.png
 ## Headless runs save the bare map; rendered runs add the legend panel.
 
@@ -59,6 +59,8 @@ static func render_map(w: WorldData, k: int, layer: String = "biome") -> Image:
 					col = Color(0.85, 0.7, 0.4).lerp(Color(0.1, 0.35, 0.8), w.moisture_at(x, z))
 				"fert":
 					col = Color(0.3, 0.2, 0.1).lerp(Color(0.2, 0.9, 0.2), w.fertility_at(x, z))
+				"slope":
+					col = Color(1, 1, 1).lerp(Color(0.6, 0.1, 0.1), clampf(w.slope_at(x, z) / 1.5, 0.0, 1.0))
 			var wt := w.water_type_at(x, z)
 			if wt == WorldData.Water.LAND:
 				var nrm := w.normal_at(x, z)

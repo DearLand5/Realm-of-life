@@ -65,9 +65,8 @@ func _build() -> void:
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 1.0
-	environment.tonemap_white = 6.0
+	environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	environment.tonemap_exposure = 1.15
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	environment.fog_density = base_fog_density
@@ -115,13 +114,14 @@ func update_now() -> void:
 	sun.visible = sun_vis > 0.001
 	_orient(sun, sun_dir)
 	sun.light_color = sun_col.lerp(Color(0.85, 0.88, 0.92), cloud * 0.6)
-	sun.light_energy = sun_vis * lerpf(0.9, 1.35, smoothstep(5.0, 35.0, elev)) * (1.0 - 0.68 * cloud) * (1.0 - 0.45 * fog)
-	sun.shadow_opacity = clampf(1.0 - cloud * 0.75 - fog * 0.6, 0.15, 1.0)
+	sun.light_energy = sun_vis * lerpf(1.2, 1.6, smoothstep(5.0, 35.0, elev)) * (1.0 - 0.68 * cloud) * (1.0 - 0.45 * fog)
+	# Grazing sun → long aliased shadows; fade them while the light is soft anyway.
+	sun.shadow_opacity = clampf(1.0 - cloud * 0.75 - fog * 0.6, 0.15, 1.0) * lerpf(0.35, 1.0, smoothstep(3.0, 14.0, elev))
 	# Moon.
 	var moon_dir := SunModel.moon_direction(sun_dir, c.year_phase)
 	moon.visible = night > 0.01
 	_orient(moon, moon_dir)
-	moon.light_energy = night * 0.22 * (1.0 - 0.7 * cloud) + flash * 2.5
+	moon.light_energy = night * 0.65 * (1.0 - 0.7 * cloud) + flash * 2.5
 
 	# Sky shader.
 	var sm := sky_material
@@ -144,11 +144,14 @@ func update_now() -> void:
 	sm.set_shader_parameter("flash", flash)
 
 	# Ambient + fog.
-	var amb := horizon.lerp(zenith, 0.45)
-	var amb_floor := Color(0.05, 0.065, 0.11)
+	var amb := horizon.lerp(zenith, 0.4)
+	# Less saturated than the sky itself (ground bounce light mixes in).
+	var grey := (amb.r + amb.g + amb.b) / 3.0
+	amb = amb.lerp(Color(grey * 1.05, grey, grey * 0.92), 0.45)
+	var amb_floor := Color(0.1, 0.13, 0.24)
 	amb = Color(maxf(amb.r, amb_floor.r), maxf(amb.g, amb_floor.g), maxf(amb.b, amb_floor.b))
 	environment.ambient_light_color = amb
-	environment.ambient_light_energy = lerpf(0.55, 0.9, day) + flash * 1.5
+	environment.ambient_light_energy = lerpf(1.0, 0.8, day) + cloud * 0.25 * day + flash * 1.5
 	environment.fog_light_color = horizon.lerp(amb, 0.25)
 	environment.fog_density = base_fog_density + fog * 0.03 + clampf(c.precipitation, 0.0, 1.0) * 0.005
 	environment.fog_sky_affect = 0.2 + fog * 0.8
