@@ -13,7 +13,7 @@ extends RefCounted
 ##                 moisture; works in water (tube feet count as skin there).
 ## Custom rule `ignore_oxygen` removes the requirement altogether.
 
-const K_LUNG_SAC := 6.0e4          # W per m³ of simple (ectotherm) lung
+const K_LUNG_SAC := 1.0e5          # W per m³ of simple (ectotherm) lung
 const K_LUNG_ALVEOLAR := 3.0e5     # W per m³ of endotherm lung
 const K_TRACHEA := 1.5e5           # W per m³ of tracheal system at efficiency 1
 const TRACHEA_CRIT_RADIUS := 0.02  # m: body radius where tracheal efficiency halves
@@ -51,7 +51,7 @@ static func build(p: PhysiologyProfile, ph: Phenotype) -> void:
 	var length := maxf(float(st.get("length", 0.1)), 0.01)
 	var body_r := sqrt(maxf(float(st.get("volume", 1e-6)), 1e-9) / (PI * length))
 	p.body_radius = body_r
-	p.trachea_efficiency = 1.0 / (1.0 + pow(body_r / TRACHEA_CRIT_RADIUS, 2.0)) if trachea_vol > 0.0 else 0.0
+	p.trachea_efficiency = 1.0 / (1.0 + pow(body_r / TRACHEA_CRIT_RADIUS, 3.0)) if trachea_vol > 0.0 else 0.0
 	p.trachea_w = trachea_vol * K_TRACHEA * p.trachea_efficiency * eff
 	# Gills.
 	var gill_area := 0.0

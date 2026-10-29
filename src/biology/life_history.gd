@@ -11,6 +11,8 @@ extends RefCounted
 ##           (k set so that ~90 % of adult mass is reached at maturity)
 ##   r/K:    clutch × per-offspring investment ≤ MAX_REPRO_FRACTION of body mass
 ##   senescence: Gompertz hazard μ(a) = (A/L)·e^(B·a/L)
+##   feasibility: development (growing up, embryos, eggs) cannot be faster
+##           than the parent's gut can pay for — poor digesters develop slowly.
 
 const STAGES: Array[StringName] = [&"egg", &"juvenile", &"adolescent", &"adult", &"elder"]
 const MAX_REPRO_FRACTION := 0.6      # body-mass fraction invested per breeding event
@@ -19,6 +21,8 @@ const GOMPERTZ_B := 6.0
 const ELDER_FRACTION := 0.75         # of lifespan
 const JUVENILE_SHARE := 0.45         # of the time to maturity
 const DAY := Units.SECONDS_PER_DAY
+const REPRO_INCOME_SHARE := 0.5      # share of production power that can fund embryos
+const GROWTH_INCOME_SHARE := 0.25    # average share available for juvenile growth
 
 
 static func build(p: PhysiologyProfile, ph: Phenotype) -> void:
@@ -27,10 +31,13 @@ static func build(p: PhysiologyProfile, ph: Phenotype) -> void:
 	var m := p.mass
 	var met := g.value(&"metabolism")
 	# Rate of living: fast metabolism shortens life; endotherms (esp. birds) are long-lived for their size.
-	var base_days := (8.0 + 10.0 * pow(m, 0.2)) * (1.0 + 0.2 * p.endothermy)
+	# Ectotherms live longer than endotherms of the same size.
+	var base_days := (8.0 + 10.0 * pow(m, 0.2)) * (1.3 - 0.3 * p.endothermy)
 	p.lifespan = base_days * g.value(&"lifespan") / sqrt(met) * DAY
 	var growth_rate := g.value(&"growth_rate")
 	p.maturity_age = p.lifespan * 0.18 * g.value(&"maturity_age") / sqrt(growth_rate)
+	var grow_min := m * Food.BUILD_COST / maxf(GROWTH_INCOME_SHARE * p.production_w, 1e-9)
+	p.maturity_age = maxf(p.maturity_age, minf(grow_min, p.lifespan * 0.45))
 	p.juvenile_s = p.maturity_age * JUVENILE_SHARE
 	p.elder_age = p.lifespan * ELDER_FRACTION
 	p.repro_mode = StringName(str(plan.bio("reproduction_mode")))
@@ -75,6 +82,18 @@ static func build(p: PhysiologyProfile, ph: Phenotype) -> void:
 	if p.repro_method == &"spores":
 		p.incubation_s = 0.3 * DAY
 		p.egg_formation_s = 0.2 * DAY
+	# Embryos cannot be built faster than the parent's income allows.
+	var fund := offspring_cost(p) * clutch / maxf(REPRO_INCOME_SHARE * p.production_w, 1e-9)
+	match p.repro_method:
+		&"live":
+			p.gestation_s = maxf(p.gestation_s, fund)
+		&"eggs", &"spores":
+			p.egg_formation_s = maxf(p.egg_formation_s, fund)
+		&"budding":
+			p.gestation_s = maxf(p.gestation_s, fund)
+	# Breeding must stay possible within a lifetime (runtime O2/energy throttling still applies).
+	p.gestation_s = minf(p.gestation_s, p.lifespan * 0.15)
+	p.egg_formation_s = minf(p.egg_formation_s, p.lifespan * 0.15)
 	# Recovery between breeding events grows with the investment of the event.
 	var event_frac := clutch * invest
 	p.repro_cooldown_s = maxf(0.2 * DAY, p.maturity_age * 0.12 * sqrt(event_frac / 0.3))
@@ -119,7 +138,7 @@ static func elder_hazard(p: PhysiologyProfile) -> float:
 ## Energy (J) a parent spends on ONE offspring (tissue + starting reserve).
 static func offspring_cost(p: PhysiologyProfile) -> float:
 	var om := p.mass * p.offspring_fraction
-	return om * Food.TISSUE_ENERGY / Food.SYNTHESIS_EFFICIENCY + p.max_energy * p.offspring_fraction * 0.5
+	return om * Food.BUILD_COST + p.max_energy * p.offspring_fraction * 0.5
 
 
 ## Total development time from conception to independent juvenile.

@@ -20,10 +20,10 @@ static func _item(level: StringName, text: String) -> Dictionary:
 	return {"level": level, "system": &"physiology", "text": text}
 
 
-static func build(p: PhysiologyProfile, ph: Phenotype) -> Array[Dictionary]:
+static func build(p: PhysiologyProfile) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	_metabolism(p, out)
-	_respiration(p, ph, out)
+	_respiration(p, out)
 	_thermal(p, out)
 	_water(p, out)
 	_diet(p, out)
@@ -44,14 +44,14 @@ static func _metabolism(p: PhysiologyProfile, out: Array[Dictionary]) -> void:
 	out.append(_item(level, "Запас энергии %s — хватит примерно на %.1f сут при обычной активности без еды." % [_energy(p.max_energy), fast]))
 
 
-static func _respiration(p: PhysiologyProfile, ph: Phenotype, out: Array[Dictionary]) -> void:
+static func _respiration(p: PhysiologyProfile, out: Array[Dictionary]) -> void:
 	if p.ignore_oxygen:
 		out.append(_item(&"info", "Особое правило: организм не нуждается в кислороде."))
 		return
 	var habitat := p.habitat
 	out.append(_item(&"info", "Дыхание: %s. Запас аэробной мощности: на суше ×%.1f, под водой ×%.1f от обмена покоя." % [RESP_LABELS.get(p.respiration, str(p.respiration)), p.scope_land, p.scope_water]))
 	var land_bad := p.scope_land < 1.0
-	var water_bad := p.scope_water < 1.0 and not (p.lungs_w > 0.0 and ph.locomotion.can_swim)
+	var water_bad := p.scope_water < 1.0 and not (p.lungs_w > 0.0 and p.can_swim)
 	if (habitat == &"land" and land_bad) or (habitat == &"water" and water_bad) or (habitat == &"amphibious" and land_bad and water_bad):
 		var media := {&"land": "суши", &"water": "воды", &"amphibious": "суши и воды"}
 		var medium := str(media.get(habitat, "среды"))
@@ -64,7 +64,7 @@ static func _respiration(p: PhysiologyProfile, ph: Phenotype, out: Array[Diction
 	elif habitat != &"water" and p.scope_land >= 1.0 and p.scope_land < 2.0:
 		out.append(_item(&"warning", "Газообмен на пределе: запас аэробной мощности всего ×%.1f — высокая активность быстро утомляет." % p.scope_land))
 	if p.respiration == &"cutaneous" and p.mass > 2.0 and maxf(p.scope_land, p.scope_water) < 3.0:
-		out.append(_item(&"warning", "Кожное дыхание при массе %.1f кг: площадь поверхности мала относительно объёма (%.0f м²/м³)." % [p.mass, float(ph.anatomy.stats.get("surface_to_volume", 0.0))]))
+		out.append(_item(&"warning", "Кожное дыхание при массе %.1f кг: площадь поверхности мала относительно объёма (%.0f м²/м³)." % [p.mass, p.surface_to_volume]))
 	if p.moist_skin_fraction > 0.4 and p.skin_air_w > 0.2 * (p.lungs_w + p.trachea_w + p.skin_air_w):
 		out.append(_item(&"info", "Кожное дыхание требует влажной кожи: в сухом воздухе газообмен падает."))
 	if p.gills_w > 0.0 and p.lungs_w <= 0.0 and habitat != &"water":
@@ -127,6 +127,9 @@ static func _life(p: PhysiologyProfile, out: Array[Dictionary]) -> void:
 	var dev := LifeHistory.development_time(p) / DAY
 	out.append(_item(&"info", "Созревание за %.1f сут, продолжительность жизни ≈ %.0f сут; потомство: %.0f × %d%% массы родителя, развитие %.1f сут." % [
 		p.maturity_age / DAY, p.lifespan / DAY, p.clutch, int(p.offspring_fraction * 100.0), dev]))
+	var prep := maxf(p.gestation_s, p.egg_formation_s)
+	if prep > p.maturity_age * 0.5:
+		out.append(_item(&"info", "Медленное размножение: подготовка выводка занимает %.1f сут — продуктивность ограничена %s." % [prep / DAY, "газообменом" if p.production_w < p.max_assimilation_w else "пищеварением"]))
 	var cost := LifeHistory.offspring_cost(p) * p.clutch
 	var reserves := cost / maxf(p.max_energy, 1e-9)
 	if reserves > 1.5:

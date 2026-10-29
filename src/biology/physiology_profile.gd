@@ -105,6 +105,8 @@ var teeth: StringName = &"none"
 var gut_capacity_kg: float = 0.05
 var gut_retention_factor: float = 1.0
 var max_intake_kg_s: float = 1e-4
+var max_assimilation_w: float = 1.0   # best sustainable energy intake (W, adult)
+var production_w: float = 1.0         # sustainable power for growth/breeding: min(assimilation, spare O2)
 
 # --- Life history -----------------------------------------------------------------
 var juvenile_s: float = 1.0
@@ -125,6 +127,8 @@ var repro_cooldown_s: float = 0.0
 var growth_k: float = 1e-5
 var molt_interval_s: float = 0.0
 var habitat: StringName = &"land"
+var can_swim := false
+var surface_to_volume: float = 0.0
 
 
 static func build(ph: Phenotype) -> PhysiologyProfile:
@@ -155,6 +159,12 @@ static func build(ph: Phenotype) -> PhysiologyProfile:
 	ThermalModel.build(p, ph)  # thermogenic capacity depends on the final BMR
 	RespirationModel.build(p, ph)
 	DietModel.build(p, ph)
+	p.max_assimilation_w = 0.0
+	for k in Food.COUNT:
+		p.max_assimilation_w = maxf(p.max_assimilation_w, p.intake_limit(k) * float(Food.ENERGY[k]) * p.food_efficiency(k))
+	p.max_assimilation_w = maxf(p.max_assimilation_w, p.autotrophic_power(0.5))
+	var o2_best := maxf(RespirationModel.capacity(p, false, 1.0, true, 0.6), RespirationModel.capacity(p, true, 0.8, false, 1.0))
+	p.production_w = maxf(minf(p.max_assimilation_w, o2_best - p.bmr_watts * (1.0 + p.upkeep_frac)), p.bmr_watts * 0.2)
 	LifeHistory.build(p, ph)
 	p.anaerobic_j = float(st.get("muscle_mass", p.mass * 0.3)) * 300.0
 	_build_water(p, ph)
@@ -167,7 +177,8 @@ static func build(ph: Phenotype) -> PhysiologyProfile:
 		"land": p.scope_land >= 1.2 and (ph.locomotion.best_land_speed() > 0.01 or ph.locomotion.can_fly),
 		"water": (p.scope_water >= 1.2 or lung_swimmer) and (ph.locomotion.can_swim or ph.locomotion.can_crawl),
 	}
-	p.notes = PhysiologyNotes.build(p, ph)
+	p.can_swim = ph.locomotion.can_swim
+	p.surface_to_volume = float(st.get("surface_to_volume", 0.0))
 	return p
 
 
@@ -247,9 +258,10 @@ func food_efficiency(kind: int) -> float:
 	return float(diet_eff.get(Food.EFF_KEYS[clampi(kind, 0, Food.COUNT - 1)], 0.0))
 
 
-## Gut retention time (s) of a food kind.
-func retention_time(kind: int) -> float:
-	var base := float(Food.RETENTION[clampi(kind, 0, Food.COUNT - 1)])
+## Gut retention time (s) of a food kind (allometric ∝ M^0.25; long
+## fermenting guts keep plant matter longer).
+func retention_time(kind: int, mass_factor: float = 1.0) -> float:
+	var base := float(Food.RETENTION[clampi(kind, 0, Food.COUNT - 1)]) * pow(maxf(mass * mass_factor, 1e-4) / 10.0, 0.25)
 	return base * (gut_retention_factor if kind == Food.PLANT or kind == Food.DETRITUS else 1.0)
 
 
@@ -257,7 +269,7 @@ func retention_time(kind: int) -> float:
 ## handling limit (mouth) and the digestive throughput (gut capacity / retention).
 func intake_limit(kind: int, mass_factor: float = 1.0) -> float:
 	var mf := maxf(mass_factor, 1e-4)
-	var throughput := gut_capacity_kg * mf / maxf(retention_time(kind), 1.0)
+	var throughput := gut_capacity_kg * mf / maxf(retention_time(kind, mf), 1.0)
 	return minf(max_intake_kg_s * pow(mf, 0.75), throughput)
 
 
@@ -269,5 +281,8 @@ func is_aquatic_breather() -> bool:
 	return scope_water >= 1.2
 
 
+## Explanatory notes (built lazily — they are only needed by the editor/UI).
 func diagnose() -> Array[Dictionary]:
+	if notes.is_empty():
+		notes = PhysiologyNotes.build(self)
 	return notes.duplicate()
