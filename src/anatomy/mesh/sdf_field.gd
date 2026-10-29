@@ -38,10 +38,20 @@ static func from_model(m: AnatomyModel, exclude_bones: Dictionary = {}) -> SdfFi
 	var f := SdfField.new()
 	for i in m.primitives.size():
 		var pr := m.primitives[i]
-		if exclude_bones.has(pr.bone):
+		if pr == null or exclude_bones.has(pr.bone) or not _valid(pr):
 			continue
 		f._add(pr, i)
 	return f
+
+
+static func _valid(pr: AnatomyModel.Primitive) -> bool:
+	if not (pr.a.is_finite() and pr.b.is_finite() and pr.radii.is_finite() and pr.basis.is_finite()):
+		return false
+	if not (is_finite(pr.ra) and is_finite(pr.rb) and is_finite(pr.blend) and is_finite(pr.flatten)):
+		return false
+	if pr.kind == 1:
+		return maxf(pr.radii.x, maxf(pr.radii.y, pr.radii.z)) > 1e-6
+	return maxf(pr.ra, pr.rb) > 1e-6
 
 
 func _add(pr: AnatomyModel.Primitive, src_index: int) -> void:

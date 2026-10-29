@@ -137,7 +137,7 @@ static func is_pending(model: AnatomyModel, lod: int) -> bool:
 
 
 static func set_memory_cap(bytes: int) -> void:
-	_st().memory_cap = maxi(bytes, 1024 * 1024)
+	_st().memory_cap = maxi(bytes, 0)
 
 
 static func clear() -> void:

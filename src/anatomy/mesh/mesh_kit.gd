@@ -256,7 +256,18 @@ static func ellipsoid(buf: MeshBuffer, xf: Transform3D, radii: Vector3, seg_arou
 			var bb := base + iy * seg_around + ix1
 			var c := base + (iy + 1) * seg_around + ix1
 			var d := base + (iy + 1) * seg_around + ix
-			if flip:
+			# Pole rows collapse to triangles (no zero-area faces).
+			if iy == 0:
+				if flip:
+					buf.tri(a, d, c)
+				else:
+					buf.tri(a, c, d)
+			elif iy == seg_up - 1:
+				if flip:
+					buf.tri(a, c, bb)
+				else:
+					buf.tri(a, bb, c)
+			elif flip:
 				buf.quad(a, d, c, bb)
 			else:
 				buf.quad(a, bb, c, d)
