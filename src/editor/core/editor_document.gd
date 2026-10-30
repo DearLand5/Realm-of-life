@@ -73,6 +73,13 @@ func load_genome(g: Genome, species_uid: String = "") -> void:
 	if genome.body_plan == null:
 		genome.body_plan = BodyPlan.new()
 	genome.body_plan.repair()
+	# Complete partial biology/rules dictionaries so history snapshots are stable.
+	for k in BodyPlan.BIOLOGY_DEFAULTS:
+		if not genome.body_plan.biology.has(k):
+			genome.body_plan.biology[k] = BodyPlan.BIOLOGY_DEFAULTS[k]
+	for k in BodyPlan.CUSTOM_RULE_DEFAULTS:
+		if not genome.body_plan.custom_rules.has(k):
+			genome.body_plan.custom_rules[k] = BodyPlan.CUSTOM_RULE_DEFAULTS[k]
 	genome.invalidate()
 	uid = species_uid
 	dirty = false
@@ -278,6 +285,20 @@ func _restore(state: Dictionary, prefer: Array) -> void:
 			break
 	changed.emit(&"history")
 	selection_changed.emit()
+
+
+## Saves into the SpeciesLibrary. Without `save_as` an existing entry is
+## overwritten (same uid). Returns the uid ("" on failure).
+func save_to_library(name_override: String = "", save_as: bool = false) -> String:
+	if name_override.strip_edges() != "" and name_override != genome.body_plan.name:
+		genome.body_plan.name = name_override.strip_edges()
+	var use_uid := "" if save_as else uid
+	var saved := SpeciesLibrary.save_species(genome, genome.body_plan.name, use_uid)
+	if saved != "":
+		mark_saved(saved)
+		if save_as:
+			history.reset(snapshot("save"))
+	return saved
 
 
 ## Marks the design as saved (after SpeciesLibrary.save_species).
