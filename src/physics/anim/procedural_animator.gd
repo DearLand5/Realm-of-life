@@ -161,12 +161,10 @@ func update_pose(dt: float, st: AnimState) -> void:
 		radius = radius / float(rig.legs.size()) * st.scale
 		var v_eff := absf(st.speed) + absf(st.turn_rate) * radius * 0.7
 		# Stride from what the legs can reach: a foot travels +-half a step around its home.
-		var reach := 0.0
+		var slack := INF
 		for leg in rig.legs:
-			reach += leg.reach
-		reach /= float(rig.legs.size())
-		var hh := rig.hip_height * 0.9
-		var half := 0.6 * sqrt(maxf(reach * reach - hh * hh, 0.04 * reach * reach))
+			slack = minf(slack, leg.slack)
+		var half := 0.6 * slack * (1.0 + 0.5 * clampf(r, 0.0, 1.0))
 		var stride_w := maxf(2.0 * half * st.scale / gait.duty, 0.02)
 		freq = clampf(v_eff / stride_w, 0.0, 7.0)
 		moving = freq > 0.08

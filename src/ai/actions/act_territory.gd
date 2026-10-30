@@ -10,6 +10,8 @@ const SPAR_SCALE := 0.35
 var rival: CreatureAgent = null
 var phase: StringName = &"approach"
 var _t_display: float = 0.0
+var _find_cache: CreatureAgent = null
+var _find_t: float = -100.0
 
 
 func _init() -> void:
@@ -23,6 +25,14 @@ static func rank_of(c: CreatureAgent) -> float:
 
 
 func _find() -> CreatureAgent:
+	if a.now - _find_t < 0.8 and (_find_cache == null or is_instance_valid(_find_cache)):
+		return _find_cache
+	_find_t = a.now
+	_find_cache = _find_uncached()
+	return _find_cache
+
+
+func _find_uncached() -> CreatureAgent:
 	var best: CreatureAgent = null
 	var best_d := INF
 	var home := a.memory.home
@@ -47,6 +57,8 @@ func _find() -> CreatureAgent:
 
 func score() -> float:
 	if a.individual.is_egg() or not a.individual.is_mature() or a.personality.aggression < 0.2:
+		return 0.0
+	if needs.territory < 0.2 and needs.mate < 0.4:
 		return 0.0
 	var o := _find()
 	if o == null:

@@ -13,6 +13,8 @@ var phase: StringName = &"seek"
 var court_t: float = 0.0
 var _pair_cache: Dictionary = {}   # individual id -> [time, ok]
 var _search_goal := Vector3.INF
+var _find_cache: Percept = null
+var _find_t: float = -100.0
 
 
 func _init() -> void:
@@ -39,6 +41,14 @@ func _compatible(p: Percept) -> bool:
 
 
 func _find() -> Percept:
+	if a.now - _find_t < 1.0 and (_find_cache == null or is_instance_valid(_find_cache.agent)):
+		return _find_cache
+	_find_t = a.now
+	_find_cache = _find_uncached()
+	return _find_cache
+
+
+func _find_uncached() -> Percept:
 	var best: Percept = null
 	var best_s := 0.0
 	for k in a.perception.memory.short:

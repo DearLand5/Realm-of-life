@@ -257,7 +257,6 @@ func _substep(dt: float, it: MoveIntent, cond: float) -> void:
 		_ballistic(dt, it, cond)
 	else:
 		_land(dt, it, cond)
-	_sense()
 
 
 ## Desired horizontal direction (unit, zero if none) and the speed fraction left after arrival slow-down.
@@ -561,8 +560,8 @@ func _finish(dt: float, _it: MoveIntent) -> void:
 	var k := clampf(dt * 8.0, 0.0, 1.0)
 	match medium:
 		&"land":
-			if not cheap or _normal_timer <= 0.0:
-				_normal_timer = 0.15
+			if _normal_timer <= 0.0:
+				_normal_timer = 0.12 if not cheap else 0.3
 				var d := maxf(radius * 0.8, 0.15)
 				var fwd := forward()
 				var right := fwd.cross(Vector3.UP)

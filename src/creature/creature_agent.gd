@@ -15,7 +15,7 @@ extends Node3D
 signal died(agent: CreatureAgent, cause: StringName)
 signal action_changed(agent: CreatureAgent, label: String)
 
-const AI_INTERVAL := [0.16, 0.8]      # s per AI tick for tier A / B
+const AI_INTERVAL := [0.2, 1.0]       # s per AI tick for tier A (5 Hz) / B (1 Hz), staggered per agent
 const BIO_STEP := [15.0, 60.0]        # bio s accumulated between biology ticks
 const EGG_STEP := 150.0
 const STATE_SAVE_EVERY := 6.0
@@ -61,6 +61,13 @@ var selected := false
 var _ring: MeshInstance3D = null
 var damage_flash: float = 0.0
 
+# Body values cached for perception of this agent by others (see _refresh_body_cache).
+var mass_kg: float = 1.0
+var vis_size_k: float = 1.0
+var scent_k: float = 1.0
+var noise_size_k: float = 1.0
+var _cache_growth: float = -1.0
+var _last_call := {}
 var _dead := false
 var _egg_mode := false
 var _ai_timer: float = 0.0
@@ -112,7 +119,7 @@ func setup(ind: Individual, context: WorldContext) -> void:
 	mover = CreatureMover.new()
 	mover.setup(phenotype, ctx, individual.position, individual.heading, individual.growth)
 	AgentNav.fix_spawn(self)
-	_combat_power = Relations.combat_power(phys, phenotype.anatomy.stats, individual.mass())
+	_refresh_body_cache()
 	body_scale = phenotype.anatomy.size_scale * individual.growth
 	_ai_timer = rng.range_f(0.0, AI_INTERVAL[0])
 	if _egg_mode:
@@ -122,6 +129,16 @@ func setup(ind: Individual, context: WorldContext) -> void:
 	_restore_state()
 	_apply_transform()
 	ctx.agents.insert(self, position)
+
+
+## Mass-dependent values other creatures' perception reads (refreshed when growth changes).
+func _refresh_body_cache() -> void:
+	_cache_growth = individual.growth
+	mass_kg = individual.mass()
+	vis_size_k = clampf(pow(maxf(mover.length, 0.01) / 0.8, 0.35), 0.45, 1.8)
+	scent_k = clampf(pow(maxf(mass_kg, 0.01), 0.3), 0.25, 3.0)
+	noise_size_k = 0.5 + 0.5 * clampf(log(mass_kg + 1.0) / log(300.0), 0.0, 1.4)
+	_combat_power = Relations.combat_power(phys, phenotype.anatomy.stats, mass_kg)
 
 
 func _build_creature() -> void:
@@ -288,6 +305,9 @@ func sim_update(phys_dt: float, bio_dt: float) -> void:
 
 
 func _think(dt: float, possessed: bool) -> void:
+	if absf(individual.growth - _cache_growth) > 0.01:
+		mover.set_growth(individual.growth)
+		_refresh_body_cache()
 	perception.update(now)
 	var hungry := brain.needs.hunger > 0.2
 	var thirsty := brain.needs.thirst > 0.2
@@ -559,6 +579,9 @@ func on_dominated(by: CreatureAgent, lost: bool) -> void:
 ## Calls: kind = alarm | mating_call | sound. Strength scales the audible range.
 func emit_call(kind: StringName, strength: float = 1.0) -> void:
 	call_time = 0.8
+	if now - float(_last_call.get(kind, -10.0)) < 1.0:
+		return   # a creature cannot shout continuously
+	_last_call[kind] = now
 	ctx.emit_stimulus(mover.pos + Vector3.UP * mover.height, kind, strength * clampf(pow(maxf(individual.mass(), 0.05), 0.12), 0.6, 1.8), self)
 
 
@@ -586,7 +609,7 @@ func _hatch() -> void:
 		egg_mesh.queue_free()
 		egg_mesh = null
 	mover.set_growth(individual.growth)
-	_combat_power = Relations.combat_power(phys, phenotype.anatomy.stats, individual.mass())
+	_refresh_body_cache()
 	_build_creature()
 	_apply_transform()
 	ctx.log_event(&"birth", "Вылупился: %s" % species_name(), {"id": individual.id})
@@ -680,8 +703,7 @@ func noise_level() -> float:
 		return 0.03 if sleeping else 0.0
 	var vmax := maxf(mover.max_speed(mover.medium, true), 0.1)
 	var sp := clampf(mover.speed / vmax, 0.0, 1.2)
-	var size_k := 0.5 + 0.5 * clampf(log(individual.mass() + 1.0) / log(300.0), 0.0, 1.4)
-	var n := (0.12 + 0.88 * sp) * size_k
+	var n := (0.12 + 0.88 * sp) * noise_size_k
 	if call_time > 0.0:
 		n = maxf(n, 0.8)
 	return n

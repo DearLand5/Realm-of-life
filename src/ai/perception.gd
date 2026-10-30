@@ -77,9 +77,10 @@ func update(now: float) -> void:
 	threat_level = 0.0
 	threat = null
 	neighbours = 0
-	var reach := maxf(vision_now, maxf(smell_now, maxf(hearing_now, maxf(sp.electro_range if in_water else 0.0, sp.thermal_range))))
-	reach = minf(reach, 120.0)
-	var found := ctx.agents.query(m.pos, reach, agent, 40)
+	# Broad phase: target size/motion, wind and noise extend the nominal ranges (checked per target below).
+	var reach := maxf(vision_now * 1.6, maxf(smell_now * 2.0, maxf(hearing_now * 1.0, maxf(sp.electro_range if in_water else 0.0, sp.thermal_range))))
+	reach = minf(maxf(reach, sp.vibration_range), 64.0)
+	var found := ctx.agents.query(m.pos, reach, agent, 16)
 	for o in found:
 		_perceive_agent(o as CreatureAgent, now)
 	_perceive_stimuli(now)
@@ -115,7 +116,12 @@ func _perceive_agent(o: CreatureAgent, now: float) -> void:
 	var dist := d.length()
 	if dist < 1e-4:
 		return
-	var o_len := o.body_length()
+	# Cheap rejection: farther than the best any sense could do for this target.
+	var best_reach := maxf(vision_now * o.vis_size_k * 1.3, maxf(smell_now * o.scent_k * 2.2, hearing_now * 1.3))
+	best_reach = maxf(best_reach, maxf(sp.vibration_range * 2.5, maxf(sp.touch_range + m.radius + o.mover.length, maxf(sp.thermal_range, sp.electro_range * 1.5))))
+	if dist > best_reach:
+		return
+	var o_len := o.mover.length
 	var moving := o.mover.speed > 0.2 and not is_egg
 	var o_in_water := o.mover.medium == &"water"
 	var best_q := 0.0
@@ -125,7 +131,7 @@ func _perceive_agent(o: CreatureAgent, now: float) -> void:
 	var dir_n := d / dist
 	# --- Vision -----------------------------------------------------------------
 	if sp.eye_count > 0 and vision_now > 0.05:
-		var size_k := clampf(pow(o_len / 0.8, 0.35), 0.45, 1.8)
+		var size_k := o.vis_size_k
 		var r := vision_now * size_k * (1.3 if moving else 0.8) * (0.35 if is_egg else 1.0)
 		if o_in_water and not in_water:
 			r *= 0.5
@@ -138,7 +144,7 @@ func _perceive_agent(o: CreatureAgent, now: float) -> void:
 				else:
 					var cs := (fwd.x * d_flat.x + fwd.z * d_flat.y) / (flat_len * maxf(Vector2(fwd.x, fwd.z).length(), 1e-4))
 					in_cone = cs >= fov_cos
-			if in_cone and WorldScan.line_of_sight(agent.ctx, eye, o.eye_world() if not is_egg else o_pos + Vector3.UP * 0.1):
+			if in_cone and WorldScan.line_of_sight(agent.ctx, eye, o_pos + Vector3.UP * (o.mover.height * 0.7 if not is_egg else 0.1)):
 				best_q = 1.0 - (dist / r) * (dist / r) * 0.8
 				best_sense = &"vision"
 				pos_err = dist * 0.01
@@ -166,14 +172,14 @@ func _perceive_agent(o: CreatureAgent, now: float) -> void:
 			pos_err = dist * 0.12
 	# --- Vibration (ground movers on land) ----------------------------------------------------
 	if best_q < 0.6 and moving and m.medium == &"land" and o.mover.medium == &"land" and not agent.mover.flying and not o.mover.flying:
-		var vib := pow(maxf(o.individual.mass(), 0.01), 0.4) * clampf(o.mover.speed / 3.0, 0.2, 1.5)
+		var vib := pow(maxf(o.mass_kg, 0.01), 0.4) * clampf(o.mover.speed / 3.0, 0.2, 1.5)
 		if dist <= sp.vibration_range * vib:
 			best_q = 0.5
 			best_sense = &"vibration"
 			pos_err = dist * 0.2
 	# --- Smell (downwind advantage) ----------------------------------------------------------------
 	if best_q < 0.5:
-		var scent := clampf(pow(maxf(o.individual.mass(), 0.01), 0.3) * (0.5 if is_egg else 1.0), 0.25, 3.0)
+		var scent := o.scent_k * (0.5 if is_egg else 1.0)
 		var wk := 1.0
 		if wind_speed > 0.1:
 			# cos > 0 when I am downwind of the source (wind blows source -> me).
@@ -209,11 +215,11 @@ func _perceive_agent(o: CreatureAgent, now: float) -> void:
 	p.confidence = clampf(best_q, 0.15, 1.0)
 	p.t_seen = now
 	p.sense = best_sense
-	p.mass = ind.mass()
+	p.mass = o.mass_kg
 	p.moving = moving
 	p.in_water = o_in_water
 	p.fresh = true
-	if first or p.role == Percept.ROLE_NEUTRAL or (int(now) % 7 == 0):
+	if first or (p.role == Percept.ROLE_NEUTRAL and int(now) % 5 == 0):
 		_classify(p, o)
 	if p.role == Percept.ROLE_CONSPECIFIC:
 		neighbours += 1
@@ -246,11 +252,15 @@ func _perceive_stimuli(now: float) -> void:
 	if ctx.stimuli.is_empty():
 		return
 	var m := agent.mover
+	var max_r := maxf(hearing_now * 3.0, maxf(smell_now * 3.0, sp.vibration_range * 3.0))
+	var max_r2 := max_r * max_r
+	var t_now := ctx.phys_time
 	for s in ctx.stimuli:
 		var src: Node = s.get("source")
-		if src == agent:
+		if src == agent or t_now - float(s["t"]) > 2.0:
 			continue
-		if ctx.phys_time - float(s["t"]) > 2.0:
+		var dp: Vector3 = s["pos"] - m.pos
+		if dp.x * dp.x + dp.z * dp.z > max_r2:
 			continue
 		var sp_pos: Vector3 = s["pos"]
 		var dist := m.pos.distance_to(sp_pos)

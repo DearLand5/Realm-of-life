@@ -12,6 +12,7 @@ class Leg:
 	var rank: float = 0.0                    # 0 front .. 1 rear
 	var rest_pts := PackedVector3Array()     # joint positions at rest (skeleton space), N+1
 	var seg_local := PackedVector3Array()    # segment direction in each bone's own rest frame
+	var slack: float = 0.05                  # how far (geometry units) the foot can step fore/aft of home
 	var lens := PackedFloat32Array()
 	var reach: float = 0.1
 	var home := Vector3.ZERO                 # rest tip position
@@ -149,10 +150,14 @@ func _add_leg(tip: int) -> void:
 	var last := model.bones[chain[chain.size() - 1]]
 	l.rest_pts.append(last.end)
 	l.home = last.end
+	var hip_to_home := last.end - model.bones[chain[0]].start
 	l.foot_dir = (last.end - last.start).normalized()
 	l.reach = 0.0
 	for x in l.lens:
 		l.reach += x
+	var r2 := l.reach * l.reach * 0.94
+	var fore_aft := sqrt(maxf(r2 - hip_to_home.x * hip_to_home.x - hip_to_home.y * hip_to_home.y, 0.0))
+	l.slack = maxf(fore_aft - absf(hip_to_home.z), 0.12 * l.reach)
 	l.pts = l.rest_pts.duplicate()
 	for i in range(chain.size()):
 		l.sub_pts.append(Vector3.ZERO)

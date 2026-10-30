@@ -19,6 +19,7 @@ var time_scale: float = 1.0
 var paused := false
 var _rng: Rng
 var _remove_queue: Array[CreatureAgent] = []
+var _graveyard: Array[CreatureAgent] = []   # dead agents of a tree-less sim stay alive until the sim is freed
 
 
 func _init(is_headless: bool = true, seed_value: int = 1) -> void:
@@ -171,7 +172,8 @@ func _flush_removals() -> void:
 			if a.is_inside_tree():
 				a.queue_free()
 			else:
-				a.free()
+				remove_child(a)
+				_graveyard.append(a)
 	_remove_queue.clear()
 
 
@@ -203,3 +205,11 @@ func _on_died(agent: Node, cause: StringName) -> void:
 	deaths.append({"id": a.individual.id, "cause": cause, "species_id": a.individual.species_id, "pos": a.position})
 	eco.add_carcass(a.position, a.individual.mass(), a.individual.species_id)
 	_remove_queue.append(a)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		for a in _graveyard:
+			if is_instance_valid(a):
+				a.free()
+		_graveyard.clear()

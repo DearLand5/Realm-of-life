@@ -22,6 +22,8 @@ var parental: float = 0.0
 var awake: float = 1.0          # circadian readiness to be active
 var ready_to_breed := false
 var hot := false                # direction of thermal discomfort
+var _slow_t: float = 0.0
+var _env_t: float = 15.0
 
 
 func update(a: CreatureAgent, dt: float) -> void:
@@ -51,14 +53,20 @@ func update(a: CreatureAgent, dt: float) -> void:
 	# Thermal comfort.
 	var stress := maxf(ind.heat_stress, ind.cold_stress)
 	hot = ind.heat_stress >= ind.cold_stress
-	var env_t := clim.temperature_at(a.mover.pos) if clim != null else p.thermal_optimum
+	_slow_t -= dt
+	var slow := _slow_t <= 0.0
+	if slow:
+		_slow_t = 1.5
+		_env_t = clim.temperature_at(a.mover.pos) if clim != null else p.thermal_optimum
+	var env_t := _env_t
 	var ecto := 1.0 - p.endothermy
 	var off := absf(env_t - p.thermal_optimum) / maxf(p.thermal_tolerance, 1.0)
 	thermal = clampf(stress * 2.0 + ecto * clampf(off - 0.8, 0.0, 1.0) * 0.8, 0.0, 1.0)
 	if ecto > 0.3 and stress < 0.05:
 		hot = env_t > p.thermal_optimum
 	# Reproduction.
-	ready_to_breed = Reproduction.is_ready(ind, clim) and p.repro_mode != &"asexual"
+	if slow:
+		ready_to_breed = Reproduction.is_ready(ind, clim) and p.repro_mode != &"asexual"
 	var bred := 0.0
 	if ready_to_breed:
 		bred = (0.55 + 0.35 * ef) * (1.0 - 0.8 * hunger) * (1.0 - 0.7 * thirst) * lerpf(0.6, 1.0, awake)

@@ -58,13 +58,13 @@ func _feasibility(p: Percept) -> float:
 func score() -> float:
 	if a.individual.is_egg() or not Relations.eats_meat(a.phys) or a.individual.stage == &"juvenile" and a.phenotype.physiology.diet != &"carnivore":
 		return 0.0
+	var drive := needs.hunger + 0.12 * a.personality.aggression * (1.0 if needs.hunger > 0.05 else 0.0)
+	if drive < 0.15:
+		return 0.0
 	if a.stamina() < 0.3 and a.brain.current != self:
 		return 0.0   # too tired to start a hunt
 	var p := _pick()
 	if p == null:
-		return 0.0
-	var drive := needs.hunger + 0.12 * a.personality.aggression * (1.0 if needs.hunger > 0.05 else 0.0)
-	if drive < 0.15:
 		return 0.0
 	var s := drive * _feasibility(p) * (0.6 + 0.6 * a.personality.aggression) * 1.35
 	s *= clampf(1.0 - 1.4 * needs.fear, 0.0, 1.0) * (0.4 + 0.6 * needs.awake)
