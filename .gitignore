@@ -12,3 +12,4 @@ export_credentials.cfg
 # Claude Code local state (agent worktrees)
 .claude/
 *.png.import
+/build/
