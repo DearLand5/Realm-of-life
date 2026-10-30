@@ -184,6 +184,26 @@ FreeCamera (Node3D/Camera3D): orbit/pan/zoom, follow(target), focus(pos), height
 SafeArea (Control-контейнер)
 ```
 
+### 6.6 Редактор существ — `src/editor/`, `scenes/creature_editor.tscn`
+```
+Payload сцены (Game.take_pending): {"species_uid"} | {"preset"} | {"genome": dict} | {} (стартовый выбор)
+Кнопка «Тест»: res://scenes/test_arena.tscn с {"genome", "return_to": "editor"}; без арены — тест-карусель в редакторе
+CreatureEditor (Control, signal tutorial_event) — оболочка: верхняя панель, рейка режимов, контекстный лист
+  (боковой в ландшафте / нижний в портрете), полоса статистики; строится кодом
+EditorContext   — общее состояние сессии (doc, режим, активный сегмент, режим жестов, флаги вида); связь через сигналы
+EditorDocument  — Genome + Phenotype + выделение + история (EditorHistory, снимки, ≥ 100 шагов);
+                  modify() / live_edit()+commit(); после каждой правки repair() и синхронная перекомпиляция (3–7 мс)
+EditorCommands, AttachMapper, PartPicker, SurfaceRay — чистая логика правок и геометрии (без узлов, тестируется headless)
+PartCatalog     — каталог частей и быстрые пресеты («Лапа бегуна», «Перьевое крыло», «Клюв»…)
+PanelSpec → SpecPanel → PartPanel — контекстные панели генерируются из PartSchema (только параметры выбранного вида)
+EditorStage     — 3D-сцена: свет, пол с тенью, FreeCamera, CreatureVisual; меш — асинхронно через CreatureMeshCache.request
+                  (LOD2 при перетаскивании, LOD0 в покое; один запрос в полёте, побеждает новейшая модель)
+EditorGestures / HandleOverlay / PartDragger — выбор касанием, перетаскивание крепления по поверхности родителя,
+                  экранные манипуляторы (длина, толщина, перемещение, поворот); два пальца — всегда камера
+modes/Mode*     — страницы вкладок: Форма, Скелет, Конечности, Покровы, Чувства, Органы, Биология, Гены, Проверка
+```
+События для обучения: `editor_shape_changed`, `editor_part_added`, `editor_diagnostics_opened`, `editor_biology_changed`, `species_saved`.
+
 ## 7. Многоуровневая симуляция
 | Уровень | Кто | Что считается | Частота |
 |---|---|---|---|
