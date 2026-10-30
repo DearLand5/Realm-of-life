@@ -261,6 +261,52 @@ func test_selection_favours_insulation_in_cold() -> void:
 	check(float(share[-10.0]) > float(share[12.0]) + 0.2, "... more than in a mild climate (%.2f vs %.2f)" % [float(share[-10.0]), float(share[12.0])])
 
 
+## Heritable variation + selection: a grazer population that starts poorly
+## insulated evolves thicker fur, more fat and stronger endothermy in a cold
+## world compared with a mild control (3 seeds each; deterministic).
+func test_evolution_of_insulation_in_cold_world() -> void:
+	var cold := 0.0
+	var mild := 0.0
+	var start := 0.0
+	for seed_value in [3, 4, 5]:
+		for temp in [-10.0, 12.0]:
+			var w := TestWorlds.flat(temp, 0.5, 32.0, 9)
+			var plants := EcoDefaults.plants([&"grass"])
+			plants.resize(1)
+			plants[0].temp_opt = temp
+			plants[0].temp_tol = 15.0
+			plants[0].growth_rate = 0.3
+			plants[0].capacity = 1.0
+			var sim := Sim.new(w, plants, seed_value, Genetics.settings_with_defaults({"rate": 10.0}), 8.0)
+			var founder := BodyPlanPresets.create(&"grazer")
+			founder.set_value(&"fur_length", 0.4)
+			founder.set_value(&"fat_reserve", 0.4)
+			founder.set_value(&"endothermy", 0.7)
+			sim.pop.seed_species(1, founder, 2.0, PackedInt32Array(), 0.1, 8)
+			start += _insulation_index(sim.pop) / 6.0
+			sim.run_days(150)
+			var idx := _insulation_index(sim.pop)
+			if temp < 0.0:
+				cold += idx / 3.0
+			else:
+				mild += idx / 3.0
+	start /= 1.0
+	check(cold > start + 0.05, "cold-world population insulates (index %.2f vs start %.2f)" % [cold, start])
+	check(cold > mild + 0.03, "more than the mild control (%.2f vs %.2f)" % [cold, mild])
+
+
+## Weighted mean of fur + fat + endothermy (normalised trait values).
+func _insulation_index(pop: PopulationManager) -> float:
+	var t := 0.0
+	var wsum := 0.0
+	for e in pop.genome_samples(1):
+		var g: Genome = e["genome"]
+		var w := float(e["weight"])
+		t += (g.norm(&"fur_length") + g.norm(&"fat_reserve") + g.norm(&"endothermy")) * w
+		wsum += w
+	return t / maxf(wsum, 1e-9)
+
+
 func test_mutation_setting_controls_variation() -> void:
 	var spread := []
 	for rate in [0.0, 8.0]:

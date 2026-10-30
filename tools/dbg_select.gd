@@ -16,6 +16,7 @@ func _initialize() -> void:
 	plants[0].temp_tol = 15.0
 	plants[0].moist_opt = 0.5
 	plants[0].growth_rate = 0.3
+	plants[0].capacity = 1.0
 	var eco := EcoGrid.new()
 	eco.setup(w, plants, climate)
 	var pop := PopulationManager.new()
@@ -25,7 +26,7 @@ func _initialize() -> void:
 	g.set_value(&"fur_length", 0.4)
 	g.set_value(&"fat_reserve", 0.4)
 	g.set_value(&"endothermy", 0.7)
-	pop.seed_species(1, g, 12.0, PackedInt32Array(), float(a[5]), 8)
+	pop.seed_species(1, g, float(a[6]), PackedInt32Array(), float(a[5]), 8)
 	var t0 := Time.get_ticks_msec()
 	var traits := [&"fur_length", &"fat_reserve", &"endothermy"]
 	for day in days + 1:
