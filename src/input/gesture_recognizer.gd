@@ -85,6 +85,7 @@ var _m_start_center := Vector2.ZERO
 var _m_last_dist := 1.0
 var _m_last_angle := 0.0
 var _m_last_center := Vector2.ZERO
+var _multi_moved: Dictionary = {}  # finger indices moved since the last evaluation
 var _pinch_on := false
 var _pan_on := false
 var _rot_on := false
@@ -182,6 +183,8 @@ func update(now: float = -1.0) -> void:
 		if t - float(tp["t0"]) >= long_press_time:
 			state = State.HELD
 			long_press.emit(tp["start"])
+	if state == State.MULTI and not _multi_moved.is_empty():
+		_flush_multi()
 	if _pending_tap and t - _pending_tap_t > double_tap_time:
 		_pending_tap = false
 		tap.emit(_pending_tap_pos)
@@ -211,6 +214,8 @@ func _on_touch(e: InputEventScreenTouch, t: float) -> void:
 		return
 	if not _touches.has(e.index):
 		return
+	if state == State.MULTI and not _multi_moved.is_empty():
+		_flush_multi()
 	var info: Dictionary = _touches[e.index]
 	info["pos"] = e.position
 	_touches.erase(e.index)
@@ -277,7 +282,15 @@ func _on_drag(e: InputEventScreenDrag, t: float) -> void:
 				_push_vel(e.position, t)
 		State.MULTI:
 			if _m_ids.has(e.index):
-				_update_multi()
+				# Fingers report one at a time: evaluate once both moved (or next
+				# frame), so a parallel pan never looks like a momentary pinch.
+				if _multi_moved.has(e.index):
+					info["pos"] = prev
+					_flush_multi()
+					info["pos"] = e.position
+				_multi_moved[e.index] = true
+				if _multi_moved.size() >= 2:
+					_flush_multi()
 
 
 func _push_vel(p: Vector2, t: float) -> void:
@@ -314,8 +327,14 @@ func _begin_multi() -> void:
 	_pinch_on = false
 	_pan_on = false
 	_rot_on = false
+	_multi_moved.clear()
 	state = State.MULTI
 	two_finger_started.emit(_m_start_center)
+
+
+func _flush_multi() -> void:
+	_multi_moved.clear()
+	_update_multi()
 
 
 func _update_multi() -> void:
