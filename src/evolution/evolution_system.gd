@@ -98,6 +98,8 @@ func check_extinctions(day: float) -> Array[SpeciesDef]:
 			_seen[d.id] = true
 		elif n < 0.5 and _seen.has(d.id):
 			if registry.mark_extinct(d.id, day):
+				if pop != null:
+					pop.remove_species(d.id)  # last fractions of an individual
 				add_log(day, &"extinction", "Вид «%s» вымер (существовал %.0f сут)." % [d.name, day - d.created_day], {"species": d.id})
 				out.append(d)
 	return out

@@ -17,6 +17,7 @@ extends SceneTree
 ##   --forms LIST     plant forms to include (default all), e.g. grass,shrub
 ##   --set LIST       founder trait overrides, e.g. fur_length=0.4,fat_reserve=0.4
 ##   --resource R     plant growth multiplier (ClimateState.sandbox_resource_mult)
+##   --rates 1        also print each species' dominant death cause, birth rate and income/demand
 ##   --seed S         RNG seed (default 7)
 ##   --rate R         mutation rate multiplier (default 1)
 ##   --traits LIST    traits to print means of (default size,fur_length,fat_reserve,endothermy)
@@ -72,7 +73,7 @@ func _initialize() -> void:
 	var t0 := Time.get_ticks_msec()
 	for day in days + 1:
 		if day % every == 0:
-			_row(day, climate, eco, pop, defs, traits)
+			_row(day, climate, eco, pop, defs, traits, opt.has("rates"))
 		if day == days:
 			break
 		for k in steps_per_day:
@@ -127,7 +128,7 @@ func _header(defs: Array[SpeciesDef], plants: Array[PlantSpecies]) -> void:
 	print("plants (t): ", ", ".join(pn))
 
 
-func _row(day: int, climate: ClimateState, eco: EcoGrid, pop: PopulationManager, defs: Array[SpeciesDef], traits: Array) -> void:
+func _row(day: int, climate: ClimateState, eco: EcoGrid, pop: PopulationManager, defs: Array[SpeciesDef], traits: Array, rates: bool = false) -> void:
 	var counts := pop.species_counts()
 	var parts := PackedStringArray()
 	for d in defs:
@@ -137,7 +138,16 @@ func _row(day: int, climate: ClimateState, eco: EcoGrid, pop: PopulationManager,
 		for p in pop.pools_of(d.id):
 			e += p.mean_energy() * p.count
 			n += p.count
-		parts.append("%d:%6.1f(e%.2f)" % [d.id, c, e / maxf(n, 1e-9)])
+		var extra := ""
+		if rates:
+			var best: SpeciesPool = null
+			for p in pop.pools_of(d.id):
+				if best == null or p.count > best.count:
+					best = p
+			if best != null:
+				var r := best.rates
+				extra = "[b%.2f d%.2f %s %.0f/%.0fW]" % [r.births, r.death_total(), r.main_cause().substr(0, 5), r.income_total(), r.demand_total()]
+		parts.append("%d:%6.1f(e%.2f)%s" % [d.id, c, e / maxf(n, 1e-9), extra])
 	var bio := PackedStringArray()
 	for p in eco.plant_species.size():
 		bio.append("%.0f" % (eco.total_biomass(p) / 1000.0))

@@ -114,9 +114,9 @@ func test_eco_grid_roundtrip() -> void:
 # --- Pools: stability and rates -------------------------------------------------------
 
 func test_pools_stable_100_days() -> void:
-	var w := TestWorlds.flat(16.0, 0.38, 96.0, 9)
+	var w := TestWorlds.flat(16.0, 0.38, 64.0, 9)
 	var sim := Sim.new(w, _grass_plants())
-	_founders(sim, [&"grazer", &"predator"], [20.0, 3.0])
+	_founders(sim, [&"grazer", &"predator"], [9.0, 1.4])
 	var lo := [INF, INF]
 	var hi := [0.0, 0.0]
 	for day in 120:
@@ -127,9 +127,9 @@ func test_pools_stable_100_days() -> void:
 			lo[s] = minf(lo[s], n)
 			hi[s] = maxf(hi[s], n)
 	check(lo[0] > 1.0, "herbivores never collapse (min %.1f)" % lo[0])
-	check(hi[0] < 150.0, "herbivores stay bounded (max %.1f)" % hi[0])
+	check(hi[0] < 80.0, "herbivores stay bounded (max %.1f)" % hi[0])
 	check(sim.pop.total_count(2) > 0.5, "predators survive 120 days (%.1f)" % sim.pop.total_count(2))
-	check(hi[1] < 40.0, "predators stay bounded (max %.1f)" % hi[1])
+	check(hi[1] < 20.0, "predators stay bounded (max %.1f)" % hi[1])
 	check(sim.eco.total_biomass(0) > 0.0, "grass is not wiped out")
 
 
@@ -209,6 +209,7 @@ func test_pool_rate_breakdown() -> void:
 		check(r.deaths.has(key), "death cause %s present" % key)
 	check(r.main_cause() != "", "main cause named")
 	check(r.to_dict().has("deaths"), "breakdown serialises")
+	check(r.income_total() < 8.0 * r.demand_total() + 100.0, "income is a per-capita power (%.0f W vs %.0f W)" % [r.income_total(), r.demand_total()])
 	# Starvation shows up when the food is gone.
 	for i in sim.eco.plant_mass.size():
 		sim.eco.plant_mass[i] = 0.0

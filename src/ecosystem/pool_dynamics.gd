@@ -391,6 +391,7 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 	var rt := pool.rates
 	rt.intake_w.fill(0.0)
 	rt.photo_w = 0.0
+	rt.predation_w = 0.0
 	rt.bmr_w = 0.0
 	rt.activity_w = 0.0
 	rt.thermo_w = 0.0

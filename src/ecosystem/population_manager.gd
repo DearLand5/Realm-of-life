@@ -584,6 +584,12 @@ func demes(species_id: int) -> Array:
 	return out
 
 
+## Removes every pool of a species (extinction clean-up, "remove species" tool).
+func remove_species(species_id: int) -> void:
+	for sec in sectors:
+		sec.pools.erase(species_id)
+
+
 ## Moves the pools of `from_id` in the given sectors to a new species id.
 func reassign_species(sector_list: PackedInt32Array, from_id: int, to_id: int) -> void:
 	for si in sector_list:
