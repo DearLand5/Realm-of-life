@@ -32,6 +32,7 @@ var perf: PerformanceManager
 var agents: AgentManager
 var ctx: WorldContext
 var gestures: GestureRecognizer
+var ambience: Ambience
 var hud: Node
 var selected: Node = null
 var controller: Node = null
@@ -125,6 +126,10 @@ func _build_scene() -> void:
 	if not state.weather_state.is_empty():
 		weather.from_dict(state.weather_state)
 
+	ambience = Ambience.new()
+	add_child(ambience)
+	ambience.setup(state.climate, weather)
+
 	day_night = DayNightCycle.new()
 	add_child(day_night)
 	day_night.setup(state.climate, weather, time)
@@ -178,7 +183,8 @@ func _place_camera() -> void:
 	var best := -1
 	var best_n := -1.0
 	for s in state.pop.sectors:
-		var n := s.total_count()
+		# Prefer populated, mild land sectors (a pleasant first view).
+		var n := s.total_count() * MathUtil.tolerance(s.base_temp, 18.0, 8.0)
 		if n > best_n and s.land_frac > 0.5:
 			best_n = n
 			best = s.index
@@ -237,6 +243,7 @@ func _process(delta: float) -> void:
 	agents.sim_update(phys_dt, bio_dt, delta)
 	var cpos := cam.camera.global_position
 	terrain.update_focus(cpos)
+	ambience.focus = cpos
 	flora.update_focus(cpos)
 	if experiment != null and experiment.running and experiment.step(6.0):
 		log_intervention(experiment.summary())

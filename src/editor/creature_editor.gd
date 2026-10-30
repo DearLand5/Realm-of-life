@@ -78,6 +78,18 @@ func _ready() -> void:
 	_layout.call_deferred()
 	if _is_empty_payload and auto_start_picker:
 		_open_start.call_deferred()
+	_attach_tutorial()
+
+
+## Interactive tutorial hints (steps 1–5) fed by the editor's tutorial events.
+func _attach_tutorial() -> void:
+	if not bool(UIApp.setting("show_tutorial", true)):
+		return
+	var overlay: Control = load("res://src/tutorial/tutorial_overlay.gd").new()
+	add_child(overlay)
+	overlay.setup(&"editor")
+	overlay.offset_top = 150
+	tutorial_event.connect(overlay.on_event)
 
 
 var _is_empty_payload := true

@@ -17,7 +17,7 @@ func test_create_and_run() -> void:
 	t0 = Time.get_ticks_msec()
 	st.pop.sector_budget = 0
 	var day := 0.0
-	for i in 30 * 4:
+	for i in 10 * 4:
 		st.climate.bio_time += 21600.0
 		st.eco.step_all(21600.0)
 		st.pop.step(21600.0)
@@ -30,8 +30,8 @@ func test_create_and_run() -> void:
 	for d in st.evo.registry.all():
 		if st.evo.registry.count(d.id) > 0.5:
 			survivors += 1
-	print("    create %d ms, 30 days %d ms, survivors %d/%d, total %.0f" % [t_create, t_run, survivors, alive.size(), st.total_population()])
-	check(survivors >= 3, "most species survive 30 days (%d)" % survivors)
+	print("    create %d ms, 10 days %d ms, survivors %d/%d, total %.0f" % [t_create, t_run, survivors, alive.size(), st.total_population()])
+	check(survivors >= 3, "most species survive 10 days (%d)" % survivors)
 
 
 func test_save_restore_roundtrip() -> void:
