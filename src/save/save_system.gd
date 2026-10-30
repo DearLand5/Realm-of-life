@@ -235,6 +235,19 @@ static func list_world_saves() -> Array:
 	return out
 
 
+## Deletes one save file of a slot (with its meta and backups); removes the
+## slot folder when nothing is left.
+static func delete_world_file(slot: String, file: String) -> void:
+	var dir := world_dir(slot)
+	var base := file.get_basename()
+	for f in [base + ".sav", base + ".sav.bak", base + ".meta", base + ".meta.bak"]:
+		if FileAccess.file_exists(dir.path_join(f)):
+			DirAccess.remove_absolute(dir.path_join(f))
+	var d := DirAccess.open(dir)
+	if d != null and d.get_files().is_empty():
+		DirAccess.remove_absolute(dir)
+
+
 static func delete_world(slot: String) -> void:
 	var dir := world_dir(slot)
 	var d := DirAccess.open(dir)

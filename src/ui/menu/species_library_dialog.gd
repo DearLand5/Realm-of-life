@@ -119,14 +119,9 @@ func _on_favorite(id: Variant, fav: bool) -> void:
 	set_favorite(str(id), fav)
 
 
-## Persists the favourite flag (SpeciesLibrary has no setter yet).
+## Persists the favourite flag.
 static func set_favorite(uid: String, fav: bool) -> void:
-	var r := SpeciesLibrary.load_entry(uid)
-	if not r["ok"]:
-		return
-	var data: Dictionary = r["data"]
-	data["favorite"] = fav
-	SaveSystem.write_envelope(SpeciesLibrary.path_of(uid), "species", data)
+	SpeciesLibrary.set_favorite(uid, fav)
 
 
 func _on_action(id: Variant, action: StringName) -> void:

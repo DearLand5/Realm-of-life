@@ -78,12 +78,7 @@ func _delete(e: Dictionary) -> void:
 		if siblings.size() <= 1:
 			SaveSystem.delete_world(slot)
 		else:
-			# Only this file of a world with several saves (SaveSystem has no per-file delete yet).
-			var dir := SaveSystem.world_dir(slot)
-			var base := str(e["file"]).get_basename()
-			for f in [base + ".sav", base + ".sav.bak", base + ".meta", base + ".meta.bak"]:
-				if FileAccess.file_exists(dir.path_join(f)):
-					DirAccess.remove_absolute(dir.path_join(f))
+			SaveSystem.delete_world_file(slot, str(e["file"]))
 	if entries is Array:
 		(entries as Array).erase(e)
 	UIApp.notify(tr("Сохранение удалено"), &"info")

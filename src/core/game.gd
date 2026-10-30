@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS := {
 	"colorblind_mode": "none",  # none | deuteranopia | protanopia | tritanopia
 	"camera_sensitivity": 1.0,
 	"invert_y": false,
+	"high_contrast": false,
 	"left_handed": false,
 	"music_volume": 0.6,
 	"sfx_volume": 0.8,
@@ -69,6 +70,7 @@ func set_setting(key: String, value) -> void:
 	settings[key] = value
 	apply_settings()
 	SaveSystem.save_settings(settings)
+	EventBus.settings_changed.emit(key, value)
 
 
 func apply_settings() -> void:

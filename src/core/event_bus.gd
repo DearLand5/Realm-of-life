@@ -36,6 +36,8 @@ signal weather_changed(weather: StringName)
 signal sim_event_logged(entry: Dictionary)
 ## level: &"info", &"warning", &"error"
 signal notify(text: String, level: StringName)
+## Emitted by Game.set_setting after a user setting changes.
+signal settings_changed(key: String, value: Variant)
 
 # --- Sandbox / experiments -----------------------------------------------------
 signal intervention_applied(description: String, data: Dictionary)

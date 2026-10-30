@@ -63,6 +63,15 @@ static func list_entries() -> Array:
 	return out
 
 
+static func set_favorite(uid: String, fav: bool) -> bool:
+	var r := load_entry(uid)
+	if not r["ok"]:
+		return false
+	var data: Dictionary = r["data"]
+	data["favorite"] = fav
+	return SaveSystem.write_envelope(path_of(uid), "species", data) == OK
+
+
 static func delete_species(uid: String) -> void:
 	for p in [path_of(uid), path_of(uid) + ".bak"]:
 		if FileAccess.file_exists(p):
