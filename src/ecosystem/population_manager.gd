@@ -28,9 +28,13 @@ var mutation_settings: Dictionary = {}
 var rng: Rng
 var dynamics: PoolDynamics
 var max_genome_builds_per_step: int = 4
+## Tier-C sectors stepped per call (0 = all). Skipped sectors keep their
+## accumulated time and are served first next call (time-slicing).
+var sector_budget: int = 0
 var migration_enabled := true
 var time: float = 0.0
 var _calls: int = 0
+var _cursor: int = 0
 var _queue: Array[SpeciesPool] = []
 
 
@@ -236,18 +240,27 @@ func step(bio_dt: float) -> void:
 		return
 	time += bio_dt
 	_calls += 1
-	for s in sectors:
+	var n := sectors.size()
+	var processed := 0
+	var next_cursor := -1
+	for k in n:
+		var idx := (_cursor + k) % n
+		var s := sectors[idx]
 		if s.pools.is_empty():
 			s.pending_dt = 0.0
 			continue
-		var dt := bio_dt
-		if s.tier >= PopSector.Tier.D:
-			s.pending_dt += bio_dt
-			if (_calls + s.index) % D_INTERVAL != 0:
-				continue
-			dt = s.pending_dt
-			s.pending_dt = 0.0
+		s.pending_dt += bio_dt
+		if s.tier >= PopSector.Tier.D and (_calls + idx) % D_INTERVAL != 0:
+			continue
+		if sector_budget > 0 and processed >= sector_budget:
+			if next_cursor < 0:
+				next_cursor = idx
+			continue
+		processed += 1
+		var dt := s.pending_dt
+		s.pending_dt = 0.0
 		_step_sector(s, dt)
+	_cursor = next_cursor if next_cursor >= 0 else 0
 	if migration_enabled:
 		_migrate(bio_dt)
 	_resample_budgeted()
@@ -603,7 +616,7 @@ func to_dict() -> Dictionary:
 	for g in genomes:
 		codec.add(g)
 	return {
-		"sector_size": sector_size, "sdim": sdim, "time": time, "calls": _calls, "rng": rng.get_state(),
+		"sector_size": sector_size, "sdim": sdim, "time": time, "calls": _calls, "pending": sectors.map(func(x: PopSector) -> float: return x.pending_dt), "rng": rng.get_state(),
 		"pools": pl, "genomes": codec.to_dict(),
 		"tiers": sectors.map(func(x: PopSector) -> int: return x.tier),
 	}
@@ -622,6 +635,9 @@ func from_dict(d: Dictionary) -> void:
 	var codec := GenomeCodec.from_dict(Serial.dict(d, "genomes"))
 	var phenos := {}
 	var tiers := Serial.arr(d, "tiers")
+	var pend := Serial.arr(d, "pending")
+	for i in mini(pend.size(), sectors.size()):
+		sectors[i].pending_dt = float(pend[i])
 	for i in mini(tiers.size(), sectors.size()):
 		sectors[i].tier = int(tiers[i])
 	for pd in Serial.arr(d, "pools"):

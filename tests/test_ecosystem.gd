@@ -162,6 +162,38 @@ func test_pools_stable_at_small_steps_and_huge_steps() -> void:
 				near(wsum, 1.0, 1e-3, "sample weights stay normalised")
 
 
+func test_tier_d_and_time_slicing_keep_the_clock() -> void:
+	var w := TestWorlds.flat(16.0, 0.5, 64.0, 9)
+	var results := []
+	# Same total time with: every sector each call / tier D / budgeted slices.
+	for mode in ["all", "tier_d", "sliced"]:
+		var sim := Sim.new(w, _grass_plants(), 5, {}, 3.0)
+		sim.pop.migration_enabled = false
+		sim.pop.seed_species(1, BodyPlanPresets.create(&"insect"), 8.0, PackedInt32Array(), 0.0, 1)
+		if mode == "tier_d":
+			for i in sim.pop.sectors.size():
+				sim.pop.set_sector_tier(i, PopSector.Tier.D)
+		elif mode == "sliced":
+			sim.pop.sector_budget = 1
+		var calls := 0
+		for d in 20:
+			for k in 5:
+				TestWorlds.advance(sim.climate, DAY * 0.2)
+				sim.eco.step_all(DAY * 0.2)
+				sim.pop.step(DAY * 0.2)
+				calls += 1
+		results.append(sim.pop.total_count(1))
+		finite(sim.pop.total_count(1), "%s: finite" % mode)
+		# After the last full cycle nothing should be left unprocessed for long.
+		var stale := 0.0
+		for sec in sim.pop.sectors:
+			stale = maxf(stale, sec.pending_dt)
+		check(stale <= DAY * 1.01, "%s: pending time stays bounded (%.2f d)" % [mode, stale / DAY])
+	check(results[0] > 1.0, "baseline thrives")
+	for i in [1, 2]:
+		check(absf(results[i] - results[0]) < 0.45 * results[0], "coarse stepping tracks the baseline (%.1f vs %.1f)" % [results[i], results[0]])
+
+
 func test_pool_rate_breakdown() -> void:
 	var w := TestWorlds.flat(16.0, 0.4, 64.0, 9)
 	var sim := Sim.new(w, _grass_plants())
