@@ -14,6 +14,7 @@ var season: int = 0              # 0 spring, 1 summer, 2 autumn, 3 winter
 var year_phase: float = 0.0      # 0..1 through the year (0 = start of spring)
 var sun_elevation: float = 30.0  # degrees
 var daylight: float = 1.0        # 0 night .. 1 full day (before clouds)
+var sun_direction := Vector3(0.0, 0.5, 0.87)  # unit vector towards the sun (world space)
 
 # --- Written by WeatherSystem --------------------------------------------------
 var weather: StringName = &"clear"   # clear cloudy rain storm fog snow
@@ -23,6 +24,9 @@ var fog: float = 0.0             # 0..1
 var wind := Vector2(1.0, 0.0)    # m/s, world xz
 var weather_temp_offset: float = 0.0   # °C anomaly from weather fronts
 var drought: float = 0.0         # 0..1 accumulated dryness index
+var snow_cover: float = 0.0      # 0..1 fresh snow lying where it is below freezing
+var wetness: float = 0.0         # 0..1 surface wetness after rain (dries out)
+var regional_temperature: float = 15.0  # °C near the observer (written by WeatherSystem)
 
 # --- Sandbox controls (player experiments) ------------------------------------
 var sandbox_temp_offset: float = 0.0
@@ -92,6 +96,19 @@ func oxygen_at(p: Vector3, in_water: bool) -> float:
 	return clampf(exp(-maxf(alt, 0.0) / 8000.0), 0.3, 1.0)
 
 
+## Snow lying at a position 0..1 (fresh cover where cold + permanent glaciers).
+func snow_at(p: Vector3) -> float:
+	var t := temperature_at(p) - diurnal_offset()
+	var fresh := snow_cover * clampf((1.5 - t) / 2.5, 0.0, 1.0)
+	var permanent := clampf((-4.0 - t) / 4.0, 0.0, 1.0)
+	return clampf(fresh + permanent, 0.0, 1.0)
+
+
+## True when precipitation at p falls as snow.
+func precipitation_is_snow(p: Vector3) -> bool:
+	return temperature_at(p) < 0.5
+
+
 func is_breeding_season() -> bool:
 	return season == 0 or (season == 1 and year_phase < 0.35)
 
@@ -100,6 +117,7 @@ func to_dict() -> Dictionary:
 	return {
 		"weather": str(weather), "cloud_cover": cloud_cover, "precipitation": precipitation, "fog": fog,
 		"wind": Serial.v2(wind), "weather_temp_offset": weather_temp_offset, "drought": drought,
+		"snow_cover": snow_cover, "wetness": wetness,
 		"sandbox_temp_offset": sandbox_temp_offset, "sandbox_moisture_offset": sandbox_moisture_offset,
 		"sandbox_resource_mult": sandbox_resource_mult,
 	}
@@ -113,6 +131,8 @@ func from_dict(d: Dictionary) -> void:
 	wind = Serial.to_v2(d.get("wind"), Vector2(1, 0))
 	weather_temp_offset = Serial.f(d, "weather_temp_offset", 0.0)
 	drought = Serial.f(d, "drought", 0.0)
+	snow_cover = Serial.f(d, "snow_cover", 0.0)
+	wetness = Serial.f(d, "wetness", 0.0)
 	sandbox_temp_offset = Serial.f(d, "sandbox_temp_offset", 0.0)
 	sandbox_moisture_offset = Serial.f(d, "sandbox_moisture_offset", 0.0)
 	sandbox_resource_mult = Serial.f(d, "sandbox_resource_mult", 1.0)

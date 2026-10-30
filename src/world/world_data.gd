@@ -20,6 +20,10 @@ var fertility := PackedFloat32Array()    # 0..1 soil nutrients
 var biome := PackedByteArray()           # Biomes id
 var water := PackedByteArray()           # Water enum
 var water_surface := PackedFloat32Array()  # water surface height where water != LAND
+## Distance (m) to the nearest water cell (0 inside water) and that water's
+## surface height. Filled by WorldGenerator; empty for hand-built worlds.
+var water_dist := PackedFloat32Array()
+var shore_level := PackedFloat32Array()
 ## Rivers as polylines for rendering: [{points: PackedVector3Array, widths: PackedFloat32Array}]
 var rivers: Array = []
 var min_height: float = 0.0
@@ -38,6 +42,8 @@ func allocate(world_size: float, resolution: int) -> void:
 	biome.resize(n)
 	water.resize(n)
 	water_surface.resize(n)
+	water_dist.resize(n)
+	shore_level.resize(n)
 
 
 func half() -> float:
@@ -167,6 +173,13 @@ func find_water_near(p: Vector3, radius: float, fresh_only: bool = true) -> Vect
 				best_d = d
 				best = wp
 	return best
+
+
+## Distance to the nearest water (m); falls back to a large value when unknown.
+func water_distance_at(x: float, z: float) -> float:
+	if water_dist.size() != res * res:
+		return 0.0 if is_water(x, z) else 1.0e6
+	return _bilinear(water_dist, x, z)
 
 
 func to_dict() -> Dictionary:
