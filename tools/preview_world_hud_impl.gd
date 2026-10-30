@@ -16,8 +16,31 @@ func _ready() -> void:
 		t += 1
 	for i in 90:
 		await get_tree().process_frame
+	print("agents: ", w.agents.live_count(), " runtime: ", w.agents.has_runtime(), " focus ", w.cam.pivot, " stat ", w.perf.statistical_mode, " budget ", w.perf.agent_budget())
+	var act := 0
+	for s in w.state.pop.sectors:
+		if w.agents.is_active_sector(s.index):
+			act += 1
+			if s.total_count() > 0: print(" active sector ", s.index, " count ", s.total_count())
+	print("active ", act)
+	if w.agents.live_count() > 0:
+		var a: Node3D = w.agents.agents[0]
+		w.cam.focus(a.global_position, 9.0, true)
+		w.select(a)
+		for i in 60:
+			await get_tree().process_frame
+		print("status: ", a.get_status())
 	await ShotUtil.save_viewport(get_tree().root, ProjectSettings.globalize_path(prefix + "_main.png"))
-	if page != "":
+	if page == "possess" or page == "first":
+		w.possess(&"third_person" if page == "possess" else &"first_person")
+		for i in 120:
+			await get_tree().process_frame
+		await ShotUtil.save_viewport(get_tree().root, ProjectSettings.globalize_path(prefix + "_" + page + ".png"))
+		w.release_control()
+		for i in 10:
+			await get_tree().process_frame
+		print("released ok, controller=", w.controller)
+	elif page != "":
 		w.hud.open_page(StringName(page))
 		for i in 20:
 			await get_tree().process_frame

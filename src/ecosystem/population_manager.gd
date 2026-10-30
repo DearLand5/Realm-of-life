@@ -468,7 +468,12 @@ func unfold(sector: int, max_count: int) -> Array[Individual]:
 	ids.sort()
 	for sid in ids:
 		var pool: SpeciesPool = sec.pools[sid]
-		var quota := mini(int(floor(pool.count)), int(round(float(max_count) * pool.count / total)))
+		# Stochastic rounding keeps sparse pools (count < 1 per sector) visible
+		# while preserving the expected number of individuals.
+		var whole := int(floor(pool.count))
+		if rng.randf() < pool.count - float(whole):
+			whole += 1
+		var quota := mini(whole, maxi(1, int(round(float(max_count) * pool.count / total))))
 		quota = mini(quota, max_count - out.size())
 		if quota <= 0:
 			continue
@@ -495,7 +500,7 @@ func unfold(sector: int, max_count: int) -> Array[Individual]:
 				ci += 1
 			taken[ci] += 1.0
 			out.append(_make_individual(pool, pool.samples[si], ci, sec))
-		var n1 := pool.count - float(quota)
+		var n1 := maxf(0.0, pool.count - float(quota))
 		for c in SpeciesPool.CLASSES:
 			pool.classes[c] = maxf(0.0, pool.classes[c] * pool.count - taken[c])
 		pool.count = n1

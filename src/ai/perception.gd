@@ -256,8 +256,9 @@ func _perceive_stimuli(now: float) -> void:
 	var max_r2 := max_r * max_r
 	var t_now := ctx.phys_time
 	for s in ctx.stimuli:
-		var src: Node = s.get("source")
-		if src == agent or t_now - float(s["t"]) > 2.0:
+		var raw_src: Variant = s.get("source")
+		var src: Node = raw_src if raw_src != null and is_instance_valid(raw_src) else null
+		if (src != null and src == agent) or t_now - float(s["t"]) > 2.0:
 			continue
 		var dp: Vector3 = s["pos"] - m.pos
 		if dp.x * dp.x + dp.z * dp.z > max_r2:

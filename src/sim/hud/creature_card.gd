@@ -24,6 +24,7 @@ func setup(w: SimWorld) -> void:
 	offset_left = 8
 	offset_bottom = -8
 	custom_minimum_size.x = 360
+	size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 	add_child(box)
@@ -63,6 +64,7 @@ func setup(w: SimWorld) -> void:
 	_vitals = Label.new()
 	_vitals.theme_type_variation = &"CaptionLabel"
 	_vitals.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_vitals.custom_minimum_size.x = 340
 	box.add_child(_vitals)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
@@ -84,6 +86,8 @@ func setup(w: SimWorld) -> void:
 func show_agent(a: Node) -> void:
 	agent = a
 	refresh()
+	reset_size()
+	set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 8)
 
 
 func refresh() -> void:

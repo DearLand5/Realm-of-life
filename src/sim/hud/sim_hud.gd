@@ -71,6 +71,8 @@ func view_surface() -> Control:
 func set_observer_visible(on: bool) -> void:
 	for n in _observer_nodes:
 		n.visible = on
+	if _tutorial != null and is_instance_valid(_tutorial):
+		_tutorial.visible = on and _tutorial.get("_index") < (_tutorial.get("_steps") as Array).size()
 	if not on:
 		_close_sheet()
 	_card.visible = on and world.selected != null
