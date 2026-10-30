@@ -57,6 +57,8 @@ var courted_by: int = -1
 var courted_t: float = -100.0
 var controller: Object = null
 var player_pose: StringName = &""
+var selected := false
+var _ring: MeshInstance3D = null
 var damage_flash: float = 0.0
 
 var _dead := false
@@ -588,6 +590,63 @@ func _hatch() -> void:
 	_build_creature()
 	_apply_transform()
 	ctx.log_event(&"birth", "Вылупился: %s" % species_name(), {"id": individual.id})
+
+
+# --- Animation / selection hooks ----------------------------------------------------------------------
+
+## Posture name for the animator: sleep, attack, call, eat, drink, stalk, flee ...
+func current_pose() -> StringName:
+	if sleeping:
+		return &"sleep"
+	if attack_time > 0.0:
+		return &"attack"
+	if call_time > 0.0:
+		return &"call"
+	if controller != null:
+		return player_pose
+	if brain != null and brain.current != null:
+		return brain.current.pose()
+	return &""
+
+
+## World point the creature looks at (threat, prey, goal) or Vector3.INF.
+func look_point() -> Vector3:
+	if perception == null:
+		return Vector3.INF
+	if perception.threat != null and perception.threat_level > 0.15:
+		return perception.threat.pos + Vector3.UP * 0.5
+	if controller == null and brain != null and brain.current is ActHunt and (brain.current as ActHunt).prey != null:
+		return (brain.current as ActHunt).prey.pos
+	if intent.mode == MoveIntent.Mode.SEEK and mover.speed > 0.3:
+		return intent.goal + Vector3.UP * mover.height * 0.5
+	return Vector3.INF
+
+
+## Called by the agent manager when the player selects this creature.
+func set_selected(on: bool) -> void:
+	selected = on
+	if headless:
+		return
+	if on and _ring == null:
+		_ring = MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.9
+		tm.outer_radius = 1.0
+		tm.rings = 24
+		tm.ring_segments = 6
+		_ring.mesh = tm
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1.0, 0.85, 0.3, 0.9)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_ring.material_override = mat
+		_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var r := maxf(mover.radius, 0.3) * 1.5 / maxf(body_scale, 1e-3)
+		_ring.scale = Vector3(r, r * 0.25, r)
+		_ring.position = Vector3(0, 0.03 / maxf(body_scale, 1e-3), 0)
+		add_child(_ring)
+	if _ring != null:
+		_ring.visible = on
 
 
 # --- Helpers used by the AI -------------------------------------------------------------------------

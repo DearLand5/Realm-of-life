@@ -44,9 +44,11 @@ static func fabrik(pts: PackedVector3Array, lens: PackedFloat32Array, target: Ve
 
 ## Writes swing rotations so each bone points along pts[k] -> pts[k+1].
 ## `parent_basis`: final (orthonormal) global basis of the chain's parent bone.
+## `seg_local`: direction of each bone's segment (start -> end) in the bone's own rest frame.
 ## `last_dir`: if non-zero the last bone keeps that direction instead (flat feet).
 ## `dirs_out` (optional): receives the final global basis Y of every bone.
-static func apply(sk: Skeleton3D, bones: PackedInt32Array, pts: PackedVector3Array, parent_basis: Basis, last_dir: Vector3 = Vector3.ZERO) -> void:
+static func apply(sk: Skeleton3D, bones: PackedInt32Array, pts: PackedVector3Array, parent_basis: Basis,
+		seg_local: PackedVector3Array, last_dir: Vector3 = Vector3.ZERO) -> void:
 	var pb := parent_basis
 	var last := bones.size() - 1
 	for k in bones.size():
@@ -63,7 +65,7 @@ static func apply(sk: Skeleton3D, bones: PackedInt32Array, pts: PackedVector3Arr
 			pb = unposed
 			continue
 		d = d.normalized()
-		var cur_y := unposed.y.normalized()
+		var cur_y := (unposed * seg_local[k]).normalized()
 		var swing := _arc(cur_y, d)
 		var desired := Basis(swing) * unposed
 		var local := pb.inverse() * desired
