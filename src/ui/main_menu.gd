@@ -36,6 +36,9 @@ func _ready() -> void:
 	refresh()
 	get_viewport().size_changed.connect(_on_resize)
 	_on_resize.call_deferred()
+	# Testing exported builds: `game -- --rl-open=editor` opens a scene directly.
+	if OS.get_cmdline_user_args().has("--rl-open=editor"):
+		_open_editor.call_deferred()
 
 
 ## Re-reads saves (Continue button) — call after dialogs that change saves.

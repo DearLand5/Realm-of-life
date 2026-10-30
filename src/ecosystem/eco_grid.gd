@@ -59,6 +59,10 @@ var cell_size: float = DEFAULT_CELL
 var dim: int = 1
 var origin := Vector2.ZERO               # world x/z of the grid corner
 var rows_per_step: int = 4
+## Each row is integrated at most about once per this many biological seconds
+## (rows are spread evenly over frames); at high time scales rows_per_step rules.
+var row_period: float = 300.0
+var _row_credit := 0.0
 
 # Static per cell.
 var cell_temp := PackedFloat32Array()
@@ -445,7 +449,10 @@ func step(bio_dt: float) -> void:
 	for r in dim:
 		row_pending[r] += bio_dt
 	_climate_factors()
-	for k in mini(rows_per_step, dim):
+	_row_credit = minf(_row_credit + float(dim) * bio_dt / maxf(row_period, 1.0), float(rows_per_step) * 2.0)
+	var rows := mini(mini(rows_per_step, dim), int(_row_credit))
+	_row_credit -= float(rows)
+	for k in rows:
 		var r := cursor
 		_process_row(r, row_pending[r])
 		row_pending[r] = 0.0

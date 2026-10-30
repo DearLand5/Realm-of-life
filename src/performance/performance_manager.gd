@@ -17,7 +17,7 @@ signal quality_changed(level: StringName)
 signal statistical_mode_changed(enabled: bool)
 
 const STATISTICAL_SCALE := 256.0
-const TARGET_FPS_MOBILE := 30.0
+const TARGET_FPS_MOBILE := 55.0
 const TARGET_FPS_DESKTOP := 55.0
 const ADAPT_WINDOW := 4.0          # s of sustained deviation before changing level
 const SECTOR_HYSTERESIS := 1.25    # deactivate only beyond active_radius × this
@@ -66,7 +66,13 @@ func set_level(lvl: StringName) -> void:
 func _apply_render_settings() -> void:
 	var vp := get_viewport()
 	if vp != null:
-		vp.scaling_3d_scale = profile.f("render_scale")
+		var sc := profile.f("render_scale")
+		vp.scaling_3d_scale = sc
+		# FSR 1 keeps edges sharp when rendering below native resolution (Forward
+		# Mobile); the Compatibility renderer only supports bilinear.
+		var compat := str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "")) == "gl_compatibility" \
+			or RenderingServer.get_current_rendering_method() == "gl_compatibility"
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if compat or sc >= 0.999 else Viewport.SCALING_3D_MODE_FSR
 		vp.mesh_lod_threshold = 1.0 + float(profile.i("mesh_lod_bias")) * 2.0
 
 

@@ -127,6 +127,12 @@ var _pending_dirty := false
 func _build() -> void:
 	stage = EditorStage.new()
 	stage.name = "Stage"
+	var safe_mode := EditorCrashGuard.begin()
+	if safe_mode:
+		stage.idle_lod = EditorCrashGuard.SAFE_IDLE_LOD
+		UIApp.notify(tr("Прошлое открытие редактора завершилось сбоем — включён облегчённый режим"), &"warning")
+	# Cleared a few seconds after the first full mesh is on screen.
+	stage.visual_swapped.connect(func() -> void: get_tree().create_timer(3.0).timeout.connect(EditorCrashGuard.done), CONNECT_ONE_SHOT)
 	add_child(stage)
 	stage.setup(ctx)
 	if _pending_uid != "":

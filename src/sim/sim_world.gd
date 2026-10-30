@@ -236,17 +236,23 @@ func _process(delta: float) -> void:
 	var phys_dt := time.phys_dt
 	var bio_dt := time.bio_dt
 	perf.update_time_scale(time.time_scale)
+	var t := Time.get_ticks_usec()
 	state.eco.step(bio_dt)
+	t = _prof(&"eco", t)
 	_step_populations(bio_dt)
+	t = _prof(&"populations", t)
 	if state.climate.day != _last_day:
 		_last_day = state.climate.day
 		state.evo.daily(float(_last_day))
+	t = _prof(&"evolution", t)
 	agents.focus = _focus_point()
 	agents.sim_update(phys_dt, bio_dt, delta)
+	t = _prof(&"agents", t)
 	var cpos := cam.camera.global_position
 	terrain.update_focus(cpos)
 	ambience.focus = cpos
 	flora.update_focus(cpos)
+	t = _prof(&"terrain_flora", t)
 	if experiment != null and experiment.running and experiment.step(6.0):
 		log_intervention(experiment.summary())
 		Game.notify("Эксперимент завершён — результаты в панели «Эксперимент»", &"success")
@@ -254,6 +260,16 @@ func _process(delta: float) -> void:
 	if _autosave_timer <= 0.0:
 		_autosave_timer = AUTOSAVE_INTERVAL
 		save_world("autosave")
+
+
+## Accumulated main-loop cost per subsystem in µs (tools/profile_world.gd).
+var profile := {}
+
+
+func _prof(key: StringName, t0: int) -> int:
+	var t := Time.get_ticks_usec()
+	profile[key] = int(profile.get(key, 0)) + t - t0
+	return t
 
 
 ## Population pools: time-sliced with an adaptive sector budget so a frame

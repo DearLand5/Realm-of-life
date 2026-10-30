@@ -51,6 +51,20 @@ static func draw_rid(rid: RID, icon_name: StringName, rect: Rect2, color: Color,
 		return false
 	var id := resolve(icon_name)
 	var side := minf(rect.size.x, rect.size.y)
+	# Fast path: one textured quad from the pre-rasterised atlas (see IconAtlas).
+	if IconAtlas.texture != null and absf(stroke - 1.0) < 0.01:
+		var src := IconAtlas.region(id)
+		if src.has_area():
+			var sq := Rect2(rect.position + (rect.size - Vector2(side, side)) * 0.5, Vector2(side, side))
+			RenderingServer.canvas_item_add_texture_rect_region(rid, sq, IconAtlas.texture.get_rid(), src, color)
+			return true
+	return draw_vector(rid, id, rect, color, stroke)
+
+
+## Draws an icon as antialiased vectors (what the atlas is rasterised from).
+static func draw_vector(rid: RID, icon_name: StringName, rect: Rect2, color: Color, stroke: float = 1.0) -> bool:
+	var id := resolve(icon_name)
+	var side := minf(rect.size.x, rect.size.y)
 	# Thin strokes look faint when tiny: keep at least ~1.3 px.
 	var units := maxf(2.0 * stroke, 1.3 * IconPainter.GRID / maxf(side, 1.0))
 	var p := _painter.setup(rid, rect, color, units)

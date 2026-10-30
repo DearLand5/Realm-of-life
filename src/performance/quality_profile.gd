@@ -7,16 +7,16 @@ const LEVELS: Array[StringName] = [&"low", &"medium", &"high"]
 
 const PRESETS := {
 	&"low": {
-		"max_agents": 70, "max_tier_a": 10, "radius_a": 28.0, "radius_b": 70.0, "active_radius": 80.0,
+		"max_agents": 70, "max_tier_a": 8, "radius_a": 28.0, "radius_b": 70.0, "active_radius": 80.0,
 		"ai_hz_a": 4.0, "ai_hz_b": 1.0, "anim_every_b": 4, "mesh_lod_bias": 1,
 		"shadow_distance": 35.0, "shadows": false, "flora_density": 0.45, "flora_distance": 70.0,
-		"terrain_lod_bias": 1, "particles": 0.35, "render_scale": 0.75, "fog_quality": 0,
+		"terrain_lod_bias": 1, "particles": 0.35, "render_scale": 0.7, "fog_quality": 0,
 	},
 	&"medium": {
-		"max_agents": 130, "max_tier_a": 18, "radius_a": 38.0, "radius_b": 95.0, "active_radius": 110.0,
+		"max_agents": 130, "max_tier_a": 14, "radius_a": 38.0, "radius_b": 95.0, "active_radius": 110.0,
 		"ai_hz_a": 6.0, "ai_hz_b": 1.5, "anim_every_b": 3, "mesh_lod_bias": 0,
 		"shadow_distance": 55.0, "shadows": true, "flora_density": 0.75, "flora_distance": 110.0,
-		"terrain_lod_bias": 0, "particles": 0.7, "render_scale": 0.9, "fog_quality": 1,
+		"terrain_lod_bias": 0, "particles": 0.7, "render_scale": 0.85, "fog_quality": 1,
 	},
 	&"high": {
 		"max_agents": 220, "max_tier_a": 30, "radius_a": 50.0, "radius_b": 130.0, "active_radius": 150.0,

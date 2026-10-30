@@ -82,6 +82,15 @@ func _ready() -> void:
 	UITheme.attach(get_tree().root)
 	get_tree().root.size_changed.connect(adapt_now)
 	adapt_now()
+	var atlas := IconAtlas.ensure_built(self)
+	if atlas != null:
+		atlas.built.connect(_redraw_all)
+
+
+## Icons already drawn as vectors switch to the atlas on their next redraw.
+func _redraw_all() -> void:
+	for n in get_tree().root.find_children("*", "CanvasItem", true, false):
+		(n as CanvasItem).queue_redraw()
 
 
 func _exit_tree() -> void:

@@ -31,6 +31,12 @@ var max_genome_builds_per_step: int = 4
 ## Tier-C sectors stepped per call (0 = all). Skipped sectors keep their
 ## accumulated time and are served first next call (time-slicing).
 var sector_budget: int = 0
+## Target interval between steps of one sector (biological seconds), see step().
+var sector_period: float = 300.0
+var _sector_credit := 0.0
+var _mig_pending := PackedFloat32Array()
+var _mig_credit := 0.0
+var _mig_cursor := 0
 var migration_enabled := true
 var time: float = 0.0
 var _calls: int = 0
@@ -241,6 +247,12 @@ func step(bio_dt: float) -> void:
 	time += bio_dt
 	_calls += 1
 	var n := sectors.size()
+	# Sectors are stepped about once per sector_period biological seconds (spread
+	# evenly over frames); at high time scales sector_budget limits instead.
+	_sector_credit = minf(_sector_credit + float(n) * bio_dt / maxf(sector_period, 1.0), float(n))
+	var allowed := int(_sector_credit)
+	if sector_budget > 0:
+		allowed = mini(allowed, sector_budget)
 	var processed := 0
 	var next_cursor := -1
 	for k in n:
@@ -252,7 +264,7 @@ func step(bio_dt: float) -> void:
 		s.pending_dt += bio_dt
 		if s.tier >= PopSector.Tier.D and (_calls + idx) % D_INTERVAL != 0:
 			continue
-		if sector_budget > 0 and processed >= sector_budget:
+		if processed >= allowed:
 			if next_cursor < 0:
 				next_cursor = idx
 			continue
@@ -261,8 +273,9 @@ func step(bio_dt: float) -> void:
 		s.pending_dt = 0.0
 		_step_sector(s, dt)
 	_cursor = next_cursor if next_cursor >= 0 else 0
+	_sector_credit -= float(processed)
 	if migration_enabled:
-		_migrate(bio_dt)
+		_migrate_sliced(bio_dt)
 	_resample_budgeted()
 
 
@@ -316,9 +329,43 @@ func _neighbours(i: int) -> PackedInt32Array:
 
 
 ## Dispersal to neighbour sectors weighted by habitat quality and crowding.
+## Migration of a slice of sectors per call (each about once per
+## sector_period), with the time each of them accumulated.
+func _migrate_sliced(bio_dt: float) -> void:
+	var n := sectors.size()
+	if _mig_pending.size() != n:
+		_mig_pending.resize(n)
+		_mig_cursor = 0
+	for i in n:
+		_mig_pending[i] += bio_dt
+	_mig_credit = minf(_mig_credit + float(n) * bio_dt / maxf(sector_period, 1.0), float(n))
+	var count := int(_mig_credit)
+	if count <= 0:
+		return
+	_mig_credit -= float(count)
+	var list: Array[PopSector] = []
+	var dts := PackedFloat32Array()
+	for k in count:
+		var idx := (_mig_cursor + k) % n
+		list.append(sectors[idx])
+		dts.append(_mig_pending[idx])
+		_mig_pending[idx] = 0.0
+	_mig_cursor = (_mig_cursor + count) % n
+	_migrate_sectors(list, dts)
+
+
 func _migrate(dt: float) -> void:
+	var dts := PackedFloat32Array()
+	dts.resize(sectors.size())
+	dts.fill(dt)
+	_migrate_sectors(sectors, dts)
+
+
+func _migrate_sectors(list: Array[PopSector], dts: PackedFloat32Array) -> void:
 	var moves := []
-	for s in sectors:
+	for si in list.size():
+		var s := list[si]
+		var dt := dts[si]
 		for p in s.pools.values():
 			var pool := p as SpeciesPool
 			if pool.count < 0.2 or pool.samples.is_empty():

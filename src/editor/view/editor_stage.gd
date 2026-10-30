@@ -26,6 +26,8 @@ var overlays: StageOverlays
 var driver: TestDriver
 
 var _model: AnatomyModel
+## Mesh LOD shown once editing pauses (EditorCrashGuard lowers it in safe mode).
+var idle_lod: int = IDLE_LOD
 var _wanted_lod: int = IDLE_LOD
 var _inflight := false
 var _idle := -1.0
@@ -120,7 +122,7 @@ func _on_doc_changed(reason: StringName) -> void:
 		_wanted_lod = LIVE_LOD
 		_idle = IDLE_DELAY
 	else:
-		_wanted_lod = IDLE_LOD
+		_wanted_lod = idle_lod
 		_idle = -1.0
 	_kick()
 	_refresh_overlays()
@@ -138,7 +140,7 @@ func _process(delta: float) -> void:
 	if _idle >= 0.0:
 		_idle -= delta
 		if _idle < 0.0:
-			_wanted_lod = IDLE_LOD
+			_wanted_lod = idle_lod
 			_kick()
 	_apply_view_offset()
 
