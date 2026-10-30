@@ -28,7 +28,11 @@ const HUNT_SEARCH := 0.05
 const CHASE_TIME := 1800.0
 const NEWBORN_ENERGY := Reproduction.OFFSPRING_START_ENERGY
 ## Prey density (per m²) at which half of the prey can be found by predators.
-const REFUGE_DENSITY := 0.3 / 1024.0
+const REFUGE_DENSITY := 0.6 / 1024.0
+## Hunting territory per kg of predator body mass.
+const TERRITORY_M2_PER_KG := 25.0
+## A predator keeps feeding on a kill for this long.
+const FEED_BOUT_S := 6.0 * 3600.0
 const MAX_HARVEST := 0.5                  # of the available food per sub-step
 const MIN_COUNT := 0.02
 const MATE_SEARCH_S := 3.0 * 86400.0
@@ -88,6 +92,7 @@ class _St:
 	var meat_gain: float = 0.0       # W per capita from predation
 	var max_energy_pc: float = 1.0   # J reserve per capita (class-mass weighted)
 	var demand_pc: float = 0.0       # W per capita (last step)
+	var carrion_pc: float = 0.0      # W per capita from scavenging (last step)
 	var meat_share: float = 0.0      # share of meat in the diet weights
 
 
@@ -148,6 +153,7 @@ func _aggregate(st: _St, pool: SpeciesPool, sec: PopSector) -> void:
 	st.max_energy_pc = 0.0
 	st.demand_pc = 0.0
 	st.meat_share = 0.0
+	st.carrion_pc = 0.0
 	for s in pool.samples:
 		var w := s.weight
 		e += s.energy * w
@@ -171,6 +177,7 @@ func _aggregate(st: _St, pool: SpeciesPool, sec: PopSector) -> void:
 		if s.meat_eater:
 			st.pred_w += w
 		st.max_energy_pc += s.max_energy * w
+		st.carrion_pc += s.last_carrion * w
 		st.demand_pc += (s.last_demand if s.last_demand > 0.0 else s.pp.maintenance_rate(s.pp.body_temp_set)) * w
 		var fw := 0.0
 		for f in Food.COUNT:
@@ -229,7 +236,7 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 			if nc < 1e-4:
 				continue
 			# Prey refuge: at low density most prey hide (cover, burrows, herds).
-			nc *= dens_q / (dens_q + REFUGE_DENSITY)
+			nc *= dens_q * dens_q / (dens_q * dens_q + REFUGE_DENSITY * REFUGE_DENSITY)
 			var mf := Q.mf_juv if c == 0 else (Q.mf_ado if c == 1 else 1.0)
 			var old := 0.8 if c == 3 else 1.0
 			var m_c := Q.mass * mf
@@ -237,10 +244,13 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 				Q.vigilance, P.mass, m_c, P.sociality)
 			var k := qi * 4 + c
 			_x[k] = a * nc / area_q * s
-			_eat[k] = minf(m_c, maxf(P.gut_meat, 1e-6))
+			_eat[k] = minf(m_c, maxf(P.gut_meat, 1e-6) + P.intake_meat * FEED_BOUT_S)
 			_hd[k] = _eat[k] / maxf(P.intake_meat, 1e-9) + CHASE_TIME
 			denom += _x[k] * _hd[k]
-	var hunters := np * P.effort * P.pred_w
+	# Territoriality: only as many predators hunt effectively as territories fit.
+	var raw_hunters := np * P.effort * P.pred_w
+	var territories := sec.area * maxf(P.habitat, 0.05) / (TERRITORY_M2_PER_KG * maxf(P.mass, 0.01))
+	var hunters := raw_hunters * territories / (territories + raw_hunters)
 	# Pass 1: kills at the unconstrained rate and the energy they would bring.
 	var gain_j := 0.0
 	for qi in n:
@@ -256,7 +266,7 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 			gain_j += _kill[k] * _eat[k] * float(Food.ENERGY[Food.MEAT]) * P.eff_meat
 	# Satiation: a predator hunts only for what it can still store plus what
 	# it burns meanwhile — no hunting far beyond its needs.
-	var appetite := np * (maxf(1.0 - P.e_mean, 0.0) * P.max_energy_pc + P.demand_pc * dt) * P.meat_share
+	var appetite := np * maxf(maxf(1.0 - P.e_mean, 0.0) * P.max_energy_pc + (P.demand_pc - P.carrion_pc) * dt, 0.0) * P.meat_share
 	var scale := minf(1.0, appetite / gain_j) if gain_j > 0.0 else 0.0
 	# Pass 2: apply.
 	for qi in n:
@@ -378,6 +388,15 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 	var killed := st.kills[0] + st.kills[1] + st.kills[2] + st.kills[3]
 	var pred_rate := killed / (n0 * dt)
 	var density := n0 / land_area * 100.0
+	var rt := pool.rates
+	rt.intake_w.fill(0.0)
+	rt.photo_w = 0.0
+	rt.bmr_w = 0.0
+	rt.activity_w = 0.0
+	rt.thermo_w = 0.0
+	rt.growth_w = 0.0
+	rt.birth_w = 0.0
+	var mu_acc := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 	for i in ns:
 		var s := pool.samples[i]
 		var pp := s.pp
@@ -390,31 +409,49 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 		var cold := lerpf(th_w.cold_stress, th_l.cold_stress, ls)
 		var eff_now := effort(s.energy)
 		# Income.
-		var income := pp.autotrophic_power(sec.light * lerpf(0.7, 1.0, ls)) * st.m23
+		var photo := pp.autotrophic_power(sec.light * lerpf(0.7, 1.0, ls)) * st.m23
+		var income := photo
 		var water_in := 0.0
+		var carrion_w := 0.0
 		for f in Food.COUNT:
 			var kg_s := _intake[i * Food.COUNT + f] * _ratio[f]
 			income += kg_s * _epk[f] * s.eff[f]
+			rt.intake_w[f] += kg_s * _epk[f] * s.eff[f] * s.weight
+			if f == Food.CARRION:
+				carrion_w = kg_s * _epk[f] * s.eff[f]
 			water_in += kg_s * float(Food.WATER[f])
 		if s.meat_eater and st.pred_w > 0.0:
 			var rel := (s.attack + 0.1) / (mean_atk + 0.1) * sqrt(s.speed / maxf(st.speed, 0.01))
 			income += st.meat_gain / st.pred_w * rel
+			rt.predation_w += st.meat_gain / st.pred_w * rel * s.weight
 		# Demand.
 		var gc := smoothstep(0.2, 0.5, s.energy)
-		var demand := pp.maintenance_rate(t_b) * st.m75 \
-			+ pp.activity_power(BASE_ACTIVITY + FORAGE_ACTIVITY * eff_now, t_b) * st.m75 * perf \
-			+ lerpf(th_w.extra_w, th_l.extra_w, ls) * st.m23 \
-			+ s.growth_power * growing * gc
+		var d_maint := pp.maintenance_rate(t_b) * st.m75
+		var d_act := pp.activity_power(BASE_ACTIVITY + FORAGE_ACTIVITY * eff_now, t_b) * st.m75 * perf
+		var d_thermo := lerpf(th_w.extra_w, th_l.extra_w, ls) * st.m23
+		var d_growth := s.growth_power * growing * gc
+		var demand := d_maint + d_act + d_thermo + d_growth
+		rt.photo_w += photo * s.weight
+		rt.bmr_w += d_maint * s.weight
+		rt.activity_w += d_act * s.weight
+		rt.thermo_w += d_thermo * s.weight
+		rt.growth_w += d_growth * s.weight
 		# Births (paid from the reserve).
 		var season := Reproduction.season_factor(pp, climate)
 		# Mate finding: adults met while searching for ~3 days (Allee effect at low density).
 		var mate := 1.0 - exp(-adults / land_area * s.search_rate * MATE_SEARCH_S) if s.needs_mate else 1.0
-		var b := (c[2] + 0.5 * c[3]) * s.female_share * s.breed_rate * smoothstep(0.35, 0.7, s.energy) * season * mate
+		var terr_k := 1.0
+		if s.meat_eater:
+			# Predators breed only on a territory of their own.
+			terr_k = clampf(2.0 * (1.0 - n0 * TERRITORY_M2_PER_KG * maxf(s.mass, 0.01) / land_area), 0.0, 1.0)
+		var b := (c[2] + 0.5 * c[3]) * s.female_share * s.breed_rate * smoothstep(0.35, 0.7, s.energy) * season * mate * terr_k
 		s.fecundity = b
+		rt.birth_w += b * s.offspring_cost * s.weight
 		var e_pc := s.max_energy * e_pc_scale
 		s.energy = clampf(s.energy + ((income - demand) * dt - b * dt * s.offspring_cost) / maxf(e_pc, 1e-9), 0.0, 1.0)
 		# Mortality.
 		s.last_income = income
+		s.last_carrion = carrion_w
 		s.last_demand = demand
 		s.mu_starve = BiologySystem.STARVE_DAMAGE * (1.0 - smoothstep(0.0, 0.12, s.energy))
 		s.mu_thermal = heat * heat * BiologySystem.HEAT_DAMAGE + cold * cold * BiologySystem.COLD_DAMAGE
@@ -433,6 +470,13 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 			var v := (mean_def / maxf(s.defense, 0.05)) * sqrt(st.speed / maxf(s.speed, 0.01)) * (1.2 - s.vigilance) / vig_m
 			s.mu_predation = pred_rate * v / v_sum
 		var mu := BG_MORTALITY + s.mu_starve + s.mu_thermal + s.mu_habitat + s.mu_water + s.mu_disease + s.mu_predation
+		var wt := s.weight
+		mu_acc[0] += s.mu_starve * wt
+		mu_acc[1] += s.mu_thermal * wt
+		mu_acc[2] += s.mu_habitat * wt
+		mu_acc[3] += s.mu_water * wt
+		mu_acc[4] += s.mu_disease * wt
+		mu_acc[5] += s.mu_predation * wt
 		var sv := exp(-mu * dt)
 		_surv[i] = sv
 		surv_sum += s.weight * sv
@@ -475,4 +519,18 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 		s.weight = tot
 	pool.normalize_weights()
 	pool.births_since_resample += recruits
+	var per_day := DAY / maxf(n0 * dt, 1e-9)
+	var d: Dictionary = rt.deaths
+	d["starvation"] = mu_acc[0] * DAY
+	d["thermal"] = mu_acc[1] * DAY
+	d["habitat"] = mu_acc[2] * DAY
+	d["water"] = mu_acc[3] * DAY
+	d["disease"] = mu_acc[4] * DAY
+	d["predation"] = killed * per_day
+	d["background"] = BG_MORTALITY * DAY
+	d["juvenile"] = pool.samples[0].juv_mortality * DAY * c[0]
+	d["senescence"] = pool.samples[0].elder_hazard * DAY * c[3]
+	rt.births = recruits * per_day
+	rt.energy_fraction = e_mean
 	pool.last_net = (n1 - n0) / (n0 * dt)
+	rt.growth_rate = pool.last_net * DAY

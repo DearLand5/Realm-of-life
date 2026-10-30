@@ -12,6 +12,7 @@ extends SceneTree
 ##   --species LIST   comma list of BodyPlanPresets ids (default grazer,predator,insect,worm)
 ##   --fauna N        use FaunaGenerator with N species instead of --species
 ##   --count N        founders per species (default 60)
+##   --counts LIST    comma list of founders per species (overrides --count by index)
 ##   --seed S         RNG seed (default 7)
 ##   --rate R         mutation rate multiplier (default 1)
 ##   --traits LIST    traits to print means of (default size,fur_length,fat_reserve,endothermy)
@@ -46,9 +47,11 @@ func _initialize() -> void:
 			d.template = BodyPlanPresets.create(StringName(id))
 			d.origin = &"player"
 			defs.append(d)
-	for d in defs:
+	var counts: PackedStringArray = str(opt.get("counts", "")).split(",", false)
+	for i in defs.size():
+		var d := defs[i]
 		reg.register(d)
-		pop.seed_species(d.id, d.template, count)
+		pop.seed_species(d.id, d.template, float(counts[i]) if i < counts.size() else count)
 	var traits: Array = []
 	for t in str(opt.get("traits", "size,fur_length,fat_reserve,endothermy")).split(","):
 		traits.append(StringName(t))

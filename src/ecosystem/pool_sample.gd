@@ -17,6 +17,7 @@ var fitness: float = 0.0            # last per-capita growth rate (diagnostic)
 # Last-step breakdown (W per capita, mortality per s) — diagnostics / UI.
 var last_income: float = 0.0
 var last_demand: float = 0.0
+var last_carrion: float = 0.0       # W per capita from carrion
 var mu_starve: float = 0.0
 var mu_thermal: float = 0.0
 var mu_habitat: float = 0.0

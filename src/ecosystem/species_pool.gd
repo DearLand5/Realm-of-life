@@ -19,6 +19,7 @@ var resample_queued := false
 var last_net: float = 0.0            # last per-capita growth rate (1/s)
 var last_kills: float = 0.0          # prey killed by this pool last step
 var migrated_in: float = 0.0         # recent immigrants (gene flow indicator)
+var rates := PoolRates.new()         # last sub-step breakdown (UI)
 
 
 func mean_energy() -> float:

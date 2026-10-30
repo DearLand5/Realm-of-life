@@ -14,7 +14,7 @@ func _initialize() -> void:
 	var every := int(args[5]) if args.size() > 5 else 2
 	var w := TestWorlds.flat(16.0, 0.38, size, 9)
 	var climate := TestWorlds.climate_for(w, 0.05)
-	var plants := EcoDefaults.plants()
+	var plants := EcoDefaults.plants([&"grass", &"shrub"] if args.size() > 6 and args[6] == "grass" else [])
 	var eco := EcoGrid.new()
 	eco.setup(w, plants, climate)
 	var pop := PopulationManager.new()
@@ -24,6 +24,7 @@ func _initialize() -> void:
 	for p in presets:
 		pop.seed_species(id, BodyPlanPresets.create(StringName(p)), count * (0.15 if p == "predator" else 1.0))
 		id += 1
+	var t0 := Time.get_ticks_msec()
 	for day in days + 1:
 		if day % every == 0:
 			var line := "d%3d" % day
@@ -54,8 +55,9 @@ func _initialize() -> void:
 			print(line)
 		if day == days:
 			break
-		for k in int(DAY / dt):
-			TestWorlds.advance(climate, dt)
-			eco.step_all(dt)
+		for k in maxi(1, int(DAY / dt)):
+			TestWorlds.advance(climate, minf(dt, DAY))
+			eco.step_all(minf(dt, DAY))
 			pop.step(dt)
+	print("%.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
 	quit(0)

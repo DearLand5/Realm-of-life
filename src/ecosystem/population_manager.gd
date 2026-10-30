@@ -11,7 +11,7 @@ extends RefCounted
 ## Dynamics: PoolDynamics (same physiology as BiologySystem).
 
 const DEFAULT_SECTOR := 32.0
-const MAX_SUBSTEP := 3600.0
+const MAX_SUBSTEP := 21600.0
 const D_INTERVAL := 5
 const RESAMPLE_FRACTION := 0.25        # births / count that trigger a resample
 const MIGRATION_RATE := 0.15 / Units.SECONDS_PER_DAY

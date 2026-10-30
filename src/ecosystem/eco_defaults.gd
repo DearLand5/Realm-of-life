@@ -33,10 +33,14 @@ const SPECS := [
 ]
 
 
-static func plants() -> Array[PlantSpecies]:
+## `forms` (optional) keeps only plants of those growth forms (ids stay dense).
+static func plants(forms: Array = []) -> Array[PlantSpecies]:
 	var out: Array[PlantSpecies] = []
-	for i in SPECS.size():
-		var d: Dictionary = SPECS[i]
+	for src in SPECS.size():
+		var d: Dictionary = SPECS[src]
+		if not forms.is_empty() and not (d["form"] in forms):
+			continue
+		var i := out.size()
 		var p := PlantSpecies.new()
 		p.id = i
 		p.name = str(d["name"])
