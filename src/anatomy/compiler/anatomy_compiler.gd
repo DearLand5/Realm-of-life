@@ -639,7 +639,7 @@ static func _emit_primitives(ctx: _Ctx) -> void:
 		pr.covering = int(a.params.get("shell_covering", 1))
 		m.primitives.append(pr)
 	for pr in m.primitives:
-		var pad := Vector3.ONE * (maxf(pr.ra, pr.rb) + pr.blend)
+		var pad := Vector3.ONE * (maxf(pr.ra, pr.rb) * maxf(1.0, pr.flatten) + pr.blend)
 		if pr.kind == 0:
 			pr.aabb = AABB(pr.a.min(pr.b) - pad, (pr.a.max(pr.b) - pr.a.min(pr.b)) + pad * 2.0)
 		else:
