@@ -91,8 +91,10 @@ func merge_samples(incoming: Array[PoolSample], share: float) -> void:
 	compact()
 
 
-func compact() -> void:
-	while samples.size() > MAX_SAMPLES:
+## Merges the lightest samples into their closest relatives until at most
+## `limit` remain (weights and condition are conserved).
+func compact(limit: int = MAX_SAMPLES) -> void:
+	while samples.size() > maxi(limit, 1):
 		var li := 0
 		for i in samples.size():
 			if samples[i].weight < samples[li].weight:

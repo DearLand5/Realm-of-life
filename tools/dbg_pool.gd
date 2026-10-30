@@ -56,8 +56,8 @@ func _initialize() -> void:
 		if day == days:
 			break
 		for k in maxi(1, int(DAY / dt)):
-			TestWorlds.advance(climate, minf(dt, DAY))
-			eco.step_all(minf(dt, DAY))
+			TestWorlds.advance(climate, dt)
+			eco.step_all(dt)
 			pop.step(dt)
 	print("%.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
 	quit(0)

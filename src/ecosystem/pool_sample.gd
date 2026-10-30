@@ -113,7 +113,9 @@ func _cache(plants: Array[PlantSpecies]) -> void:
 	land_ok = clampf((pp.scope_land - 0.8) / 1.2, 0.0, 1.0) * clampf((land_speed + (2.0 if flyer else 0.0)) / 0.3, 0.0, 1.0)
 	var aquatic_breath := clampf((pp.scope_water - 0.8) / 1.2, 0.0, 1.0)
 	var water_move := clampf((lp.swim_speed if lp.can_swim else lp.crawl_speed * 0.5) / 0.3, 0.0, 1.0)
-	water_ok = maxf(aquatic_breath, 0.6 if lung_swimmer else 0.0) * water_move
+	# Lung-breathing land animals can cross water but cannot live in it.
+	var swim_habit := 0.6 if (pp.habitat == &"water" or pp.habitat == &"amphibious") else 0.1
+	water_ok = maxf(aquatic_breath, swim_habit if lung_swimmer else 0.0) * water_move
 	if pp.habitat == &"water":
 		land_ok *= 0.3  # aquatic species avoid leaving the water
 	speed = maxf(maxf(land_speed if land_ok >= water_ok else lp.swim_speed, lp.fly_speed * 0.5), 0.05)

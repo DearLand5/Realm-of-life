@@ -8,11 +8,15 @@ extends SceneTree
 ##   --dt S           biological seconds per step (default 21600 = 6 h)
 ##   --every N        print every N days (default 5)
 ##   --world W        flat | cold | warm | hot | lake | islands | grass (default grass)
+##   --temp C         flat land with this annual mean temperature (overrides --world)
 ##   --size M         world size in metres (default 256)
 ##   --species LIST   comma list of BodyPlanPresets ids (default grazer,predator,insect,worm)
 ##   --fauna N        use FaunaGenerator with N species instead of --species
 ##   --count N        founders per species (default 60)
 ##   --counts LIST    comma list of founders per species (overrides --count by index)
+##   --forms LIST     plant forms to include (default all), e.g. grass,shrub
+##   --set LIST       founder trait overrides, e.g. fur_length=0.4,fat_reserve=0.4
+##   --resource R     plant growth multiplier (ClimateState.sandbox_resource_mult)
 ##   --seed S         RNG seed (default 7)
 ##   --rate R         mutation rate multiplier (default 1)
 ##   --traits LIST    traits to print means of (default size,fur_length,fat_reserve,endothermy)
@@ -24,9 +28,10 @@ func _initialize() -> void:
 	await process_frame
 	var opt := _parse(OS.get_cmdline_user_args())
 	var size := float(opt.get("size", "256"))
-	var w := _world(str(opt.get("world", "grass")), size)
+	var w := TestWorlds.flat(float(opt["temp"]), 0.5, size) if opt.has("temp") else _world(str(opt.get("world", "grass")), size)
 	var climate := TestWorlds.climate_for(w, 0.05)
-	var plants := EcoDefaults.plants()
+	climate.sandbox_resource_mult = float(opt.get("resource", "1"))
+	var plants := EcoDefaults.plants(str(opt.get("forms", "")).split(",", false) if opt.has("forms") else [])
 	var eco := EcoGrid.new()
 	eco.setup(w, plants, climate)
 	var seed_value := int(opt.get("seed", "7"))
@@ -48,6 +53,10 @@ func _initialize() -> void:
 			d.origin = &"player"
 			defs.append(d)
 	var counts: PackedStringArray = str(opt.get("counts", "")).split(",", false)
+	for d0 in defs:
+		for kv in str(opt.get("set", "")).split(",", false):
+			var parts := kv.split("=")
+			d0.template.set_value(StringName(parts[0]), float(parts[1]))
 	for i in defs.size():
 		var d := defs[i]
 		reg.register(d)

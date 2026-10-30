@@ -185,6 +185,26 @@ func seed_species(species_id: int, founder: Genome, total: float, where: PackedI
 			var g := founder.copy_shared_plan()
 			Genetics.founder_variation(g, rng, variation)
 			variants.append(PoolSample.create(g, null, eco.plant_species))
+	_seed_variants(species_id, variants, total, targets)
+
+
+## Seeds pools from explicit genotypes (equal shares): used by experiments
+## and the sandbox "release these animals" tool.
+func seed_genotypes(species_id: int, genomes: Array, total: float, where: PackedInt32Array = PackedInt32Array()) -> void:
+	var variants: Array[PoolSample] = []
+	for g in genomes:
+		variants.append(PoolSample.create(g as Genome, null, eco.plant_species))
+	var targets := where
+	if targets.is_empty() and not variants.is_empty():
+		for s in sectors:
+			if variants[0].habitat(s.land_frac, s.water_frac) > 0.3:
+				targets.append(s.index)
+	if targets.is_empty() or variants.is_empty():
+		return
+	_seed_variants(species_id, variants, total, targets)
+
+
+func _seed_variants(species_id: int, variants: Array[PoolSample], total: float, targets: PackedInt32Array) -> void:
 	var per := total / float(targets.size())
 	for si in targets:
 		var p := _get_or_create(sectors[si], species_id)
@@ -349,8 +369,8 @@ func resample(pool: SpeciesPool) -> int:
 	var frac := clampf(pool.births_since_resample / maxf(pool.count, 1.0), 0.0, 0.5)
 	pool.births_since_resample = 0.0
 	var k := pool.samples.size()
-	var target := mini(SpeciesPool.MAX_SAMPLES, maxi(2, int(ceil(pool.count))))
-	var r := clampi(int(ceil(float(SpeciesPool.MAX_SAMPLES) * frac)), 1, maxi(1, SpeciesPool.MAX_SAMPLES / 2))
+	var r := clampi(int(ceil(float(SpeciesPool.MAX_SAMPLES) * frac)), 1, SpeciesPool.MAX_SAMPLES / 2)
+	r = mini(r, maxi(1, int(ceil(pool.count))))
 	var parent_w := []
 	for s in pool.samples:
 		parent_w.append(s.weight * (s.fecundity + 1e-12))
@@ -358,8 +378,7 @@ func resample(pool: SpeciesPool) -> int:
 	var sexual := pool.samples[0].needs_mate
 	var kids: Array[PoolSample] = []
 	for j in r:
-		var mi := rng.weighted_index(parent_w)
-		var mom := pool.samples[maxi(mi, 0)]
+		var mom := pool.samples[maxi(rng.weighted_index(parent_w), 0)]
 		var g: Genome
 		if sexual:
 			var dad := pool.samples[maxi(rng.weighted_index(parent_w), 0)]
@@ -369,20 +388,14 @@ func resample(pool: SpeciesPool) -> int:
 		var kid := PoolSample.create(g, null, eco.plant_species)
 		kid.energy = mean_e
 		kids.append(kid)
-	# New genotypes take the place (and weight) of the lightest samples; small
-	# sample sets grow first.
-	var freed := 0.0
-	var grow := mini(r, maxi(0, target - k))
-	for j in r - grow:
-		var li := 0
-		for i in pool.samples.size():
-			if pool.samples[i].weight < pool.samples[li].weight:
-				li = i
-		freed += pool.samples[li].weight
-		pool.samples.remove_at(li)
-	var each := freed / float(r) if r - grow > 0 else 1.0 / float(k + grow)
+	# Make room by merging the rarest genotypes into their closest relatives,
+	# then give the new genotypes the share of the pool they were born into.
+	pool.compact(SpeciesPool.MAX_SAMPLES - r)
+	var kid_share := clampf(frac, 0.04, 0.4)
+	for s in pool.samples:
+		s.weight *= (1.0 - kid_share)
 	for kid in kids:
-		kid.weight = maxf(each, frac / float(r))
+		kid.weight = kid_share / float(r)
 		pool.samples.append(kid)
 	pool.normalize_weights()
 	return r
