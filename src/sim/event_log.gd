@@ -33,7 +33,7 @@ func add(category: StringName, text: String, data: Dictionary = {}) -> Dictionar
 				drop = i
 				break
 		entries.remove_at(drop)
-	EventBus.sim_event_logged.emit(e)
+	Bus.emit(&"sim_event_logged", [e])
 	return e
 
 
