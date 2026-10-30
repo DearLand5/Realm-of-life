@@ -19,7 +19,7 @@ func _initialize() -> void:
 	if portrait:
 		SafeArea.debug_insets = Vector4(0, 34, 0, 18)
 	var game := UIApp.game()
-	game.set("pending", {"preset": preset})
+	game.set("pending", {} if preset == "-" else {"preset": preset})
 	var ed: CreatureEditor = load("res://scenes/creature_editor.tscn").instantiate()
 	get_root().add_child(ed)
 	current_scene = ed

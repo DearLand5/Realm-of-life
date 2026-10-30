@@ -331,7 +331,7 @@ static func _organ_size(t: String) -> float:
 static func suggest_parent(plan: BodyPlan, entry: Dictionary, selected_id: int) -> int:
 	var accepted: Array = entry.get("parents", [])
 	var sel := plan.get_part(selected_id)
-	if sel != null and (accepted.is_empty() or accepted.has(str(sel.kind)) or (sel.is_spine() and PartSchema.is_point(StringName(entry["kind"])) == false and accepted.has("torso"))):
+	if sel != null and (accepted.is_empty() or accepted.has(str(sel.kind))):
 		return sel.id
 	for k in accepted:
 		var l := plan.parts_of_kind(StringName(k))

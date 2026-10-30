@@ -97,11 +97,15 @@ func _initial_genome() -> Genome:
 		return BodyPlanPresets.create(StringName(str(pend["preset"])))
 	if pend.has("genome") and pend["genome"] is Dictionary:
 		_is_empty_payload = false
+		# Returning from the test arena keeps the library link and unsaved state.
+		_pending_uid = str(pend.get("species_uid", ""))
+		_pending_dirty = bool(pend.get("dirty", false))
 		return Genome.from_dict(pend["genome"])
 	return null
 
 
 var _pending_uid := ""
+var _pending_dirty := false
 
 
 # --- Construction ---------------------------------------------------------------------------
@@ -113,6 +117,7 @@ func _build() -> void:
 	stage.setup(ctx)
 	if _pending_uid != "":
 		doc.uid = _pending_uid
+	doc.dirty = _pending_dirty
 	_surface = Control.new()
 	_surface.name = "ViewSurface"
 	_surface.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -524,53 +529,7 @@ func _on_action(action: StringName, args: Dictionary) -> void:
 
 ## Desktop shortcuts (touch UI has buttons for everything).
 func _unhandled_key_input(event: InputEvent) -> void:
-	var k := event as InputEventKey
-	if k == null or not k.pressed or k.echo:
-		return
-	var ctrl := k.ctrl_pressed or k.meta_pressed
-	var handled := true
-	match k.keycode:
-		KEY_Z:
-			if ctrl and k.shift_pressed:
-				doc.redo()
-			elif ctrl:
-				doc.undo()
-			else:
-				handled = false
-		KEY_Y:
-			if ctrl:
-				doc.redo()
-			else:
-				handled = false
-		KEY_C:
-			if ctrl:
-				ctx.request(&"copy")
-			else:
-				handled = false
-		KEY_V:
-			if ctrl:
-				ctx.request(&"paste")
-			else:
-				handled = false
-		KEY_D:
-			if ctrl:
-				ctx.request(&"duplicate")
-			else:
-				handled = false
-		KEY_S:
-			if ctrl:
-				ctx.request(&"save")
-			else:
-				handled = false
-		KEY_DELETE, KEY_BACKSPACE:
-			ctx.request(&"delete")
-		KEY_F:
-			ctx.request(&"fit")
-		KEY_ESCAPE:
-			doc.select(-1)
-		_:
-			handled = false
-	if handled:
+	if EditorShortcuts.handle(ctx, event):
 		get_viewport().set_input_as_handled()
 
 
@@ -597,7 +556,8 @@ func _save(as_new: bool) -> void:
 
 func _test() -> void:
 	if ResourceLoader.exists(ARENA_SCENE):
-		UIApp.goto_scene(ARENA_SCENE, {"genome": doc.genome.to_dict(), "return_to": "editor"})
+		UIApp.goto_scene(ARENA_SCENE, {"genome": doc.genome.to_dict(), "return_to": "editor",
+			"species_uid": doc.uid, "dirty": doc.dirty})
 		return
 	var lp := doc.phenotype.locomotion
 	var m := TestDriver.best_medium(lp)
