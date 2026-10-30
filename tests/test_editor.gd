@@ -213,3 +213,21 @@ func test_all_presets_compile_and_diagnose() -> void:
 		check(doc.phenotype != null and not doc.diagnostics.is_empty(), "preset %s builds" % id)
 		var picked := PartPicker.pick(doc.phenotype.anatomy, doc.phenotype.anatomy.aabb.get_center() + Vector3(0, 0, 5), Vector3.FORWARD, 0.02)
 		check(picked.has("hit"), "picker runs on %s" % id)
+
+
+func test_catalog_entries_place_and_compile() -> void:
+	var doc := _doc(&"predator")
+	var all := PartCatalog.entries()
+	check(all.size() > 60, "catalogue is large (%d)" % all.size())
+	for e in all:
+		var g := BodyPlanPresets.create(&"predator")
+		var plan := g.body_plan
+		var pid := PartCatalog.suggest_parent(plan, e, -1)
+		var nid := PartCatalog.place(plan, str(e["id"]), pid, true)
+		check(nid > 0 and plan.get_part(nid) != null, "placed %s" % e["id"])
+		if nid < 0:
+			continue
+		check(plan.get_part(nid).kind == StringName(e["kind"]), "kind of %s" % e["id"])
+		g.invalidate()
+		var ph := Phenotype.build(g)
+		check(ph.anatomy.bones.size() > 0 and PartPicker.first_instance(ph.anatomy, nid) >= 0, "compiles %s" % e["id"])
