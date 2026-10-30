@@ -3,7 +3,7 @@ extends SceneTree
 ##   tools/shot.sh tools/preview_editor.gd -- <mode> <preset> <select_kind|-> <out.png> [extra]
 ##   SHOT_RES=720x1280 tools/shot.sh tools/preview_editor.gd -- limbs predator limb res://screenshots/tmp/ed.png
 ## mode: shape|anatomy|limbs|covering|senses|organs|biology|genetics|diagnostics
-## extra: xray | edit | scroll=<px> | test | seg=<n> | collapse
+## extra: xray | edit | scroll=<px> | test | seg=<n> | collapse | req=<action> (catalog, more, save_sheet, open)
 
 func _initialize() -> void:
 	await process_frame
@@ -36,9 +36,29 @@ func _initialize() -> void:
 		ed.ctx.set_edit_gesture(true)
 	if extra == "test":
 		ed.ctx.request(&"test")
+	if extra.begins_with("req="):
+		ed.ctx.request(StringName(extra.get_slice("=", 1)))
 	if extra == "collapse":
 		ed._sheet_state = 2
 		ed._layout()
+	if extra == "het":
+		ed.doc.modify("het", func(g: Genome) -> void:
+			var ti := TraitCatalog.index_of(&"albinism")
+			var ls := TraitCatalog.locus_start(ti)
+			g.alleles[ls * 2 + 1] = 1.0
+			var tj := TraitCatalog.index_of(&"hue_shift")
+			g.alleles[TraitCatalog.locus_start(tj) * 2] = 0.8
+			g.invalidate(), &"genetics", &"structure")
+		for i in 4:
+			await process_frame
+		var page: Node = ed._pages[&"genetics"]
+		for c in page.find_children("*", "Collapsible", true, false):
+			(c as Collapsible).expanded = true
+		for i in 4:
+			await process_frame
+		for sl in page.find_children("*", "ParamSlider", true, false):
+			if (sl as ParamSlider).label_text == "Альбинизм":
+				ed._scroll.scroll_vertical = int((sl as Control).global_position.y - ed._scroll.global_position.y + ed._scroll.scroll_vertical) - 30
 	if extra.begins_with("seg="):
 		ed.ctx.set_segment(int(extra.get_slice("=", 1)))
 	for i in 40:

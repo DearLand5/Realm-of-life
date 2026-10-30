@@ -18,7 +18,10 @@ func setup(c: EditorContext) -> void:
 	UITheme.override_const(_row, "h_separation", 14)
 	UITheme.override_const(_row, "v_separation", 2)
 	add_child(_row)
-	ctx.doc.changed.connect(func(_r: StringName) -> void: refresh())
+	# Live edits are throttled by the editor (see CreatureEditor._process).
+	ctx.doc.changed.connect(func(r: StringName) -> void:
+		if r != &"live":
+			refresh())
 	refresh()
 
 

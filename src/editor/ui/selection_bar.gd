@@ -43,7 +43,9 @@ func setup(c: EditorContext) -> void:
 	_add_btn(&"dup", &"duplicate", TranslationServer.translate("Дублировать часть с потомками"), func() -> void: ctx.request(&"duplicate"))
 	_add_btn(&"del", &"trash", TranslationServer.translate("Удалить часть с потомками"), func() -> void: ctx.request(&"delete"))
 	ctx.doc.selection_changed.connect(refresh)
-	ctx.doc.changed.connect(func(_r: StringName) -> void: refresh())
+	ctx.doc.changed.connect(func(r: StringName) -> void:
+		if r != &"live":
+			refresh())
 	refresh()
 
 

@@ -17,7 +17,7 @@ extends Control
 signal tutorial_event(id: StringName)
 
 const ARENA_SCENE := "res://scenes/test_arena.tscn"
-const SHEET_PORTRAIT_FRACTIONS := [0.0, 0.40, 0.62]
+const SHEET_PORTRAIT_FRACTIONS := [0.0, 0.46, 0.68]
 
 var ctx: EditorContext
 var doc: EditorDocument
@@ -49,6 +49,8 @@ var _test_panel: PanelContainer
 var _test_label: Label
 var _hint: Label
 var _layout_queued := false
+var _live_dirty := false
+var _live_timer := 0.0
 var _fitted := false
 
 
@@ -243,6 +245,9 @@ func _build_rail(portrait: bool = false) -> void:
 		b.tooltip_text = "%s — %s" % [tr(m["label"]), tr(m["tip"])]
 	_rail.current = ctx.mode
 	_rail.tab_selected.connect(func(id: StringName) -> void: ctx.set_mode(id))
+	if portrait:
+		# Tighter spacing so all nine labelled tabs fit the phone width.
+		(_rail.get_child(0) as BoxContainer).add_theme_constant_override("separation", 2)
 
 
 func _build_test_panel() -> void:
@@ -253,6 +258,7 @@ func _build_test_panel() -> void:
 	var v := VBoxContainer.new()
 	_test_panel.add_child(v)
 	var t := EditorUI.heading(tr("Испытание существа"))
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	v.add_child(t)
 	_test_label = EditorUI.caption("")
 	v.add_child(_test_label)
@@ -329,9 +335,7 @@ func _layout() -> void:
 		_scroll.visible = true
 	_sheet_toggle.visible = portrait
 	_sheet_toggle.icon_name = &"chevron_up" if _sheet_state != 2 else &"chevron_down"
-	if not _fitted:
-		_fitted = true
-		stage.fit_camera(true)
+
 	var sh := maxf(_stats.get_combined_minimum_size().y, stats_h)
 	_stats.size.y = sh
 	if not portrait:
@@ -341,9 +345,14 @@ func _layout() -> void:
 		view.position.y = y0 + sh
 		view.size.y = _rail.position.y - view.position.y
 	stage.set_view_rect(view)
+	if not _fitted:
+		_fitted = true
+		stage.fit_camera(true)
 	var tw := minf(view.size.x - 2.0 * m, 420.0 * sc)
-	_test_panel.size = Vector2(tw, 10)
-	_test_panel.position = Vector2(view.get_center().x - tw * 0.5, view.end.y - _test_panel.get_combined_minimum_size().y - m)
+	_test_panel.custom_minimum_size = Vector2(tw, 0)
+	_test_label.custom_minimum_size.x = tw - 40.0 * sc
+	_test_panel.reset_size()
+	_test_panel.position = Vector2(view.get_center().x - tw * 0.5, view.end.y - _test_panel.size.y - m)
 	_hint.position = Vector2(view.position.x + m, view.position.y + m)
 	_hint.size = Vector2(view.size.x - 2.0 * m, 10)
 	_fit_rail_tabs(portrait, touch, sc)
@@ -370,7 +379,7 @@ func _fit_rail_tabs(portrait: bool, touch: float, sc: float) -> void:
 						c.content_margin_right = 2.0 * sc
 					b.add_theme_stylebox_override(st, c)
 		if portrait:
-			b.custom_minimum_size = Vector2(maxf(48.0 * sc, (_rail.size.x / float(count)) - 6.0), touch * 1.1)
+			b.custom_minimum_size = Vector2(maxf(40.0 * sc, (_rail.size.x - 8.0 * sc * float(count - 1)) / float(count) - 1.0), touch * 1.1)
 		else:
 			var avail := (_rail.size.y - 8.0 * sc * float(count - 1)) / float(count)
 			b.custom_minimum_size = Vector2(touch * 1.1, clampf(avail, 46.0 * sc, touch * 1.2))
@@ -389,6 +398,9 @@ func _on_mode_changed(m: StringName) -> void:
 	var page: EditorMode = _pages[m]
 	page.ensure_built()
 	_rail.current = m
+	var tab := _rail.tab_button(m)
+	if tab != null and tab.is_inside_tree():
+		_rail.ensure_control_visible.call_deferred(tab)
 	var info := PartPanel.mode_info(m)
 	_mode_title.text = "%s — %s" % [tr(info["label"]), tr(info["tip"])]
 	_sel_bar.visible = m not in [&"biology", &"genetics"]
@@ -418,15 +430,26 @@ func _on_doc_changed(reason: StringName) -> void:
 	var page: EditorMode = _pages[ctx.mode]
 	match reason:
 		&"live":
-			page.on_live()
+			_live_dirty = true      # read-outs refresh at <= 10 Hz (see _process)
 		&"commit":
 			page.refresh_values()
 			page.on_live()
+			_live_dirty = false
 		_:
 			for id in _pages:
 				(_pages[id] as EditorMode).mark_dirty()
 			page.ensure_built()
 	_update_hint()
+
+
+func _process(delta: float) -> void:
+	_live_timer -= delta
+	if _live_dirty and _live_timer <= 0.0:
+		_live_dirty = false
+		_live_timer = 0.1
+		(_pages[ctx.mode] as EditorMode).on_live()
+		_stats.refresh()
+		_sel_bar.refresh()
 
 
 func _on_edited(tag: StringName) -> void:
@@ -459,7 +482,7 @@ func _update_hint() -> void:
 		_hint.text = tr("Коснитесь части тела, чтобы выбрать её. Двумя пальцами — вращение, масштаб, сдвиг.") if not ctx.edit_gesture else tr("Режим редактирования: перетащите часть по телу. Двумя пальцами — камера.")
 	else:
 		_hint.text = ""
-	_hint.visible = _hint.text != ""
+	_hint.visible = _hint.text != "" and not _test_panel.visible
 
 
 # --- Actions -------------------------------------------------------------------------------------
@@ -497,6 +520,58 @@ func _on_action(action: StringName, args: Dictionary) -> void:
 				doc.load_genome(gen, str(args.get("uid", "")))
 				stage.fit_camera(true)
 				ctx.set_mode(&"shape")
+
+
+## Desktop shortcuts (touch UI has buttons for everything).
+func _unhandled_key_input(event: InputEvent) -> void:
+	var k := event as InputEventKey
+	if k == null or not k.pressed or k.echo:
+		return
+	var ctrl := k.ctrl_pressed or k.meta_pressed
+	var handled := true
+	match k.keycode:
+		KEY_Z:
+			if ctrl and k.shift_pressed:
+				doc.redo()
+			elif ctrl:
+				doc.undo()
+			else:
+				handled = false
+		KEY_Y:
+			if ctrl:
+				doc.redo()
+			else:
+				handled = false
+		KEY_C:
+			if ctrl:
+				ctx.request(&"copy")
+			else:
+				handled = false
+		KEY_V:
+			if ctrl:
+				ctx.request(&"paste")
+			else:
+				handled = false
+		KEY_D:
+			if ctrl:
+				ctx.request(&"duplicate")
+			else:
+				handled = false
+		KEY_S:
+			if ctrl:
+				ctx.request(&"save")
+			else:
+				handled = false
+		KEY_DELETE, KEY_BACKSPACE:
+			ctx.request(&"delete")
+		KEY_F:
+			ctx.request(&"fit")
+		KEY_ESCAPE:
+			doc.select(-1)
+		_:
+			handled = false
+	if handled:
+		get_viewport().set_input_as_handled()
 
 
 func _on_back() -> void:
@@ -541,13 +616,17 @@ func _test() -> void:
 		lines.append(tr("Не способно передвигаться — подумайте о конечностях, плавниках или крыльях."))
 	_test_label.text = "\n".join(lines)
 	_test_panel.visible = true
+	handles.visible = false
 	stage.driver.start(m)
+	stage.cam.focus(Vector3(0.0, 0.5, 0.0), 5.8)
 	_layout()
 
 
 func _stop_test() -> void:
 	stage.driver.stop()
+	stage.fit_camera()
 	_test_panel.visible = false
+	handles.visible = true
 
 
 func _open_start() -> void:

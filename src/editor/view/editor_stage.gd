@@ -224,7 +224,7 @@ func fit_camera(instant: bool = false) -> void:
 	var share := 1.0
 	if _view_rect.size.x > 1.0:
 		share = clampf(minf(_view_rect.size.x, _view_rect.size.y) / maxf(vp.y, 1.0), 0.15, 1.0)
-	var dist := ext * 1.6 / (2.0 * tan_half * share)
+	var dist := ext * 1.3 / (2.0 * tan_half * share)
 	cam.focus(c, clampf(dist, cam.min_distance, cam.max_distance), instant)
 	if instant:
 		cam.snap()

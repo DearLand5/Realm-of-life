@@ -10,14 +10,11 @@ var medium: StringName = &"land"
 var _visual: CreatureVisual
 var _ph: Phenotype
 var _t := 0.0
-var _wings: Array[int] = []
-var _wing_side: Array[float] = []
 var _speed_mps := 1.0
 
 
 func set_phenotype(ph: Phenotype) -> void:
 	_ph = ph
-	_collect_wings()
 
 
 func attach(v: CreatureVisual, ph: Phenotype) -> void:
@@ -55,18 +52,6 @@ func stop() -> void:
 	if _visual != null:
 		_visual.position = Vector3.ZERO
 		_visual.rotation = Vector3.ZERO
-		_reset_wings()
-
-
-func _collect_wings() -> void:
-	_wings.clear()
-	_wing_side.clear()
-	if _ph == null:
-		return
-	for b in _ph.anatomy.bones:
-		if b.kind == &"wing" and b.depth == 0:
-			_wings.append(b.index)
-			_wing_side.append(1.0 if b.side >= 0 else -1.0)
 
 
 func _process(delta: float) -> void:
@@ -100,22 +85,5 @@ func _apply(t: float) -> void:
 	_visual.rotation = Vector3(0.0, yaw, 0.0)
 	if medium == &"air":
 		_visual.rotation.z = 0.12 * sin(t * 2.0)
-	var flap := sin(t * (14.0 if medium == &"air" else 3.0)) * (0.8 if medium == &"air" else 0.1)
-	var sk := _visual.get_skeleton()
-	if sk == null:
-		return
-	for i in _wings.size():
-		var bi: int = _wings[i]
-		if bi >= sk.get_bone_count():
-			continue
-		var axis := (sk.get_bone_global_rest(bi).basis.inverse() * Vector3(0, 0, 1)).normalized()
-		sk.set_bone_pose_rotation(bi, Quaternion(axis, flap * _wing_side[i]))
 
 
-func _reset_wings() -> void:
-	var sk := _visual.get_skeleton() if _visual != null else null
-	if sk == null:
-		return
-	for bi in _wings:
-		if bi < sk.get_bone_count():
-			sk.set_bone_pose_rotation(bi, Quaternion.IDENTITY)

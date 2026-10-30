@@ -21,12 +21,12 @@ const MODES: Array[Dictionary] = [
 	{"id": &"shape", "icon": &"scale", "label": "Форма", "tip": "Туловище, шея, голова, хвост, панцирь"},
 	{"id": &"anatomy", "icon": &"skull", "label": "Скелет", "tip": "Суставы, мышцы, внутренние органы"},
 	{"id": &"limbs", "icon": &"paw", "label": "Конечности", "short": "Лапы", "tip": "Ноги, плавники, крылья, щупальца"},
-	{"id": &"covering", "icon": &"layers", "label": "Покровы", "tip": "Кожа, чешуя, шерсть, перья, окраска"},
+	{"id": &"covering", "icon": &"layers", "label": "Покровы", "short": "Покров", "tip": "Кожа, чешуя, шерсть, перья, окраска"},
 	{"id": &"senses", "icon": &"eye", "label": "Чувства", "tip": "Глаза, уши, нос, усики, сенсоры"},
 	{"id": &"organs", "icon": &"claw", "label": "Органы", "tip": "Рты, рога, шипы, когти, жабры, железы"},
-	{"id": &"biology", "icon": &"leaf", "label": "Биология", "tip": "Среда, питание, размножение, обмен веществ"},
+	{"id": &"biology", "icon": &"leaf", "label": "Биология", "short": "Жизнь", "tip": "Среда, питание, размножение, обмен веществ"},
 	{"id": &"genetics", "icon": &"dna", "label": "Гены", "tip": "Наследуемые признаки и аллели"},
-	{"id": &"diagnostics", "icon": &"chart", "label": "Проверка", "tip": "Анатомическая диагностика"},
+	{"id": &"diagnostics", "icon": &"chart", "label": "Проверка", "short": "Анализ", "tip": "Анатомическая диагностика"},
 ]
 
 var doc: EditorDocument
