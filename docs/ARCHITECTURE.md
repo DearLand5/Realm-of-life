@@ -175,6 +175,21 @@ ProceduralAnimator: походка по числу ног, IK стоп без с
 CreatureController: схемы управления (ground, flyer, swimmer, tentacle, crawler), 1-е/3-е лицо
 ```
 
+Реализация (`src/creature/`, `src/ai/`, `src/physics/`, `src/control/`, `src/arena/`):
+```
+CreatureAgent.setup(ind, ctx) / sim_update(phys_dt, bio_dt) / set_tier / set_lod / possess / release / teardown / get_status / set_selected
+  Perception (зрение: конус + свет + рельеф; обоняние по ветру; слух; вибрация; электро; тепло; касание) → CreatureMemory
+    (кратковременная: Percept с затухающей уверенностью; долговременная: еда/вода/опасность/дом) ; WorldScan (растения, вода, падаль)
+  Brain: Needs (голод, жажда, сон/ритм, страх, терморегуляция, размножение, социальность, территория, забота) → utility-действия
+    ActFeed(plant|detritus|plankton|carrion) ActHunt ActDrink ActRest ActFlee ActThermo ActMate ActNest ActParent ActFollowParent
+    ActTerritory ActFlock ActCall ActWander ; Relations (роли хищник/добыча/сородич, урон)
+  CreatureMover(MoveIntent): суша/вода/воздух по LocomotionProfile, move_power → BiologySystem
+  ProceduralAnimator(AnimState): Gait + LegStepper + LimbIK (FABRIK), BodyMotion (волны, хвост, крылья, плавники, щупальца, голова)
+  CreatureController.possess(agent, mode, world) ; signal exited ; ControlScheme / ControlCamera / CreatureHud / PlayerActions
+  ArenaSim (WorldContext + EcoGrid на ArenaWorld; используется TestArena и тестами) ; scenes/test_arena.tscn
+```
+Время: движение в физических секундах; `move_power` пересчитан в Вт на биологическую секунду (стоимость Дж/м × v / 60).
+
 ### 6.5 Input/UI — `src/input/`, `src/ui/`, `src/camera/`
 ```
 UITheme.build(scale) -> Theme ; Icons (векторные) ; виджеты: IconButton, ParamSlider(+/−, поле), ...

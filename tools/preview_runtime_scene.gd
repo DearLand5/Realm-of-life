@@ -13,6 +13,8 @@ func run(args: PackedStringArray) -> void:
 	await get_tree().process_frame
 	var what := args[0] if args.size() > 0 else "all"
 	var out_dir := "res://screenshots" if what == "all" else "res://screenshots/tmp"
+	if what == "sheet":
+		await _sheet(args[1] if args.size() > 1 else "res://screenshots/tmp/runtime_sheet.png")
 	if what in ["all", "arena"]:
 		await _arena_shot(args[1] if args.size() > 1 and what == "arena" else "%s/runtime_arena.png" % out_dir)
 	if what in ["all", "first"]:
@@ -160,3 +162,53 @@ func _third_person(path: String) -> void:
 	arena.controller.cam.snap()
 	await _settle(10)
 	await ShotUtil.save_viewport(get_tree().root, ProjectSettings.globalize_path(path))
+
+
+## Close-ups of very different anatomies in motion (animator check): tiles in one sheet.
+func _sheet(path: String) -> void:
+	await _new_arena("grazer")
+	arena.controller.release()
+	arena.hud_layer.visible = false
+	arena.sim.climate.cloud_cover = 0.0
+	cam.make_current()
+	cam.fov = 40.0
+	var specs := [
+		[&"grazer", 1.5, "land"], [&"predator", 3.5, "land"], [&"bird", 8.0, "air"], [&"fish", 1.5, "water"],
+		[&"octopus", 0.8, "water"], [&"worm", 0.2, "land"], [&"centipede", 0.5, "land"], [&"spider", 0.7, "land"],
+		[&"frog", 1.0, "land"], [&"insect", 1.0, "air"], [&"runner", 3.5, "land"], [&"turtle", 0.7, "land"],
+	]
+	var tile := Vector2i(427, 360)
+	var sheet := Image.create(tile.x * 3, tile.y * 4, false, Image.FORMAT_RGBA8)
+	var i := 0
+	for sp in specs:
+		var s := arena.sim
+		var pos := Vector3(-6, 0, 20)
+		if sp[2] == "water":
+			pos = Vector3(17, 0, 10)
+		var a := s.spawn_preset(sp[0], pos)
+		_driven.clear()
+		var fly: bool = sp[2] == "air"
+		if fly:
+			a.mover.flying = true
+			a.mover.pos.y += 3.0
+			a.mover.speed = float(sp[1]) * 0.7
+		a.mover.heading = -PI * 0.5
+		_drive(a, Vector3(1, 0, 0), float(sp[1]), fly)
+		if sp[2] == "water":
+			a.intent.surface = false
+		_run_driven(2.2)
+		var c := a.mover.pos + Vector3.UP * maxf(a.mover.height * 0.5, 0.05)
+		var ext := maxf(a.mover.length, a.mover.height * 1.5)
+		var dist := ext * 2.6 + 0.4
+		cam.look_at_from_position(c + Vector3(0.0, ext * 0.25, dist), c)
+		await _settle(5)
+		var img := get_tree().root.get_texture().get_image()
+		var rect := Rect2i((img.get_width() - tile.x) / 2, (img.get_height() - tile.y) / 2, tile.x, tile.y)
+		sheet.blit_rect(img, rect, Vector2i((i % 3) * tile.x, (i / 3) * tile.y))
+		a.teardown()
+		a.queue_free()
+		s.agent_list.erase(a)
+		i += 1
+	var out := ProjectSettings.globalize_path(path)
+	sheet.save_png(out)
+	print("saved ", out)
