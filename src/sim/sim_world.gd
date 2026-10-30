@@ -16,7 +16,8 @@ signal selection_changed(agent: Node)
 
 const AUTOSAVE_INTERVAL := 300.0          # real seconds
 const POP_FRAME_BUDGET_MS := 5.0
-const BACKLOG_LIMIT := 2.0 * Units.SECONDS_PER_DAY
+const POP_FRAME_BUDGET_STAT_MS := 14.0     # no live agents to simulate in statistical mode
+const BACKLOG_LIMIT := 5.0 * Units.SECONDS_PER_DAY
 const CONTROLLER_SCRIPT := "res://src/control/creature_controller.gd"
 
 var state: SimState
@@ -48,6 +49,7 @@ var _pop_debt := 0.0
 var _autosave_timer := AUTOSAVE_INTERVAL
 var _last_day := -1
 var _throttle_notified := false
+var _throttle_cooldown := 0.0
 var _pending: Dictionary = {}
 
 
@@ -266,14 +268,17 @@ func _step_populations(bio_dt: float) -> void:
 	state.pop.step(_pop_debt)
 	_pop_debt = 0.0
 	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
-	if ms > POP_FRAME_BUDGET_MS and _pop_budget > 1:
+	var limit := POP_FRAME_BUDGET_STAT_MS if perf.statistical_mode else POP_FRAME_BUDGET_MS
+	if ms > limit and _pop_budget > 1:
 		_pop_budget -= 1
-	elif ms < POP_FRAME_BUDGET_MS * 0.5 and _pop_budget < state.pop.sectors.size():
-		_pop_budget += 1
+	elif ms < limit * 0.6 and _pop_budget < state.pop.sectors.size():
+		_pop_budget += 2
 	var backlog := 0.0
 	for s in state.pop.sectors:
 		backlog = maxf(backlog, s.pending_dt)
-	if backlog > BACKLOG_LIMIT and time.scale_index > 0 and time.time_scale > 16.0:
+	_throttle_cooldown -= get_process_delta_time()
+	if backlog > BACKLOG_LIMIT and time.time_scale > 16.0 and _throttle_cooldown <= 0.0:
+		_throttle_cooldown = 3.0
 		time.slower()
 		if not _throttle_notified:
 			_throttle_notified = true

@@ -91,7 +91,7 @@ func update(_dt: float) -> void:
 	if best_p != Vector3.INF:
 		_dir = (best_p - pos).normalized()
 	# Cornered: turn and fight.
-	if not any_free and th != null and th.agent is CreatureAgent and th.dist < a.body_length() + 2.0:
+	if not any_free and th != null and is_instance_valid(th.agent) and th.agent is CreatureAgent and th.dist < a.body_length() + 2.0:
 		a.go_node(th.agent, burst, 0.5)
 		var res := a.attack(th.agent as CreatureAgent)
 		if res.get("hit", false):

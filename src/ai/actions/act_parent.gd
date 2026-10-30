@@ -32,7 +32,7 @@ func _find_threat(kids: Array[CreatureAgent]) -> CreatureAgent:
 			continue
 		if p.role != Percept.ROLE_PREDATOR and p.role != Percept.ROLE_COMPETITOR:
 			continue
-		if p.pos.distance_to(centre) < 22.0 and p.agent is CreatureAgent:
+		if p.pos.distance_to(centre) < 22.0 and is_instance_valid(p.agent) and p.agent is CreatureAgent:
 			return p.agent as CreatureAgent
 	return null
 
