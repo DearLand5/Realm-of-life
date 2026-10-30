@@ -18,7 +18,14 @@
   сохраняй в `res://screenshots/tmp/` (в .gitignore). Скрипт-инструмент `extends SceneTree`,
   ждёт `await process_frame`, затем `ShotUtil.save_viewport(get_root(), path)`.
   Камеру ставь ПОСЛЕ первого `await process_frame` через `look_at_from_position`.
-- В контейнере нет Vulkan — рендер проверяется только через OpenGL Compatibility.
+- Vulkan в контейнере — только программный (lavapipe, пакет `mesa-vulkan-drivers`):
+  `godot --rendering-driver vulkan --rendering-method mobile ...`; по умолчанию проверяй через OpenGL.
+- Телефон в скриншотах: `SHOT_RES=1600x720 RL_DEVICE_FACTOR=1.1 tools/shot.sh ...` (20:9 и
+  авто-увеличение UI, как на устройстве). UI обязан помещаться в 1280×720 и 1600×720 без наложений.
+- Тела существ: `creature.gdshader` (детальный) и `creature_lite.gdshader` (облегчённый, по умолчанию
+  на телефонах; настройка `creature_shading`). Новые эффекты покровов добавляй в оба.
+- APK: `tools/export_android.sh` (шаблоны экспорта, Android SDK, ключ через
+  `GODOT_ANDROID_KEYSTORE_RELEASE_*`) → `dist/RealmOfLife-<версия>.apk`. Ориентация — только альбомная.
 - Скрипты, запускаемые через `godot -s`, компилируются ДО появления автозагрузок (`EventBus`, `Game`):
   делай их «тонкими запускателями», которые после первого кадра `load()`-ят настоящий код
   (пример: `tools/preview_world_hud.gd` → `tools/preview_world_hud_impl.gd`). В модельном коде

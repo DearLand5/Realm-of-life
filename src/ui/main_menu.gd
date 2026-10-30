@@ -13,6 +13,7 @@ var _continue_btn: Button
 var _continue_caption: Label
 var _column: VBoxContainer
 var _layout: ResponsiveBox
+var _scroll: ScrollContainer
 var _tip_card: Card
 var _tip_title: Label
 var _tip_text: Label
@@ -56,9 +57,16 @@ func _build() -> void:
 	_layout = ResponsiveBox.new()
 	_layout.layout_changed.connect(func(_v: bool) -> void: _on_resize())
 	safe.add_child(_layout)
+	# The action column scrolls when a short landscape phone cannot fit it.
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_layout.add_child(_scroll)
 	_column = VBoxContainer.new()
 	_column.alignment = BoxContainer.ALIGNMENT_CENTER
-	_layout.add_child(_column)
+	_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_column)
 	_column.add_child(_build_title())
 	_gap = Control.new()
 	_column.add_child(_gap)
@@ -192,9 +200,8 @@ func _on_resize() -> void:
 	var portrait := vp.y > vp.x
 	var sc := UITheme.scale_of(self)
 	var col_w := minf(vp.x - 40.0 * sc, 520.0 * sc) if portrait else 440.0 * sc
-	_column.custom_minimum_size.x = col_w
-	_column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if portrait else Control.SIZE_FILL
-	_column.size_flags_vertical = Control.SIZE_EXPAND_FILL if portrait else Control.SIZE_FILL
+	_scroll.custom_minimum_size.x = col_w
+	_scroll.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if portrait else Control.SIZE_FILL
 	UITheme.override_const(_column, "separation", int(10 * sc))
 	_right.size_flags_vertical = Control.SIZE_SHRINK_END if portrait else Control.SIZE_EXPAND_FILL
 	_tip_card.custom_minimum_size.x = col_w if portrait else 400.0 * sc

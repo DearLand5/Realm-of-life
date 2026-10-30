@@ -23,6 +23,8 @@ func _initialize() -> void:
 	_cam = Camera3D.new()
 	_stage.add_child(_cam)
 	await process_frame
+	# CREATURE_LITE=1 previews the lightweight phone body shader.
+	CreatureMaterials.lite = OS.get_environment("CREATURE_LITE") == "1"
 	match mode:
 		"lineup":
 			await _lineup(_arg(args, 1, "res://screenshots/tmp/creatures_lineup.png"), int(_arg(args, 2, "0")))

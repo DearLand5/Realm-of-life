@@ -71,11 +71,12 @@ func view_surface() -> Control:
 func set_observer_visible(on: bool) -> void:
 	for n in _observer_nodes:
 		n.visible = on
-	if _tutorial != null and is_instance_valid(_tutorial):
-		_tutorial.visible = on and _tutorial.get("_index") < (_tutorial.get("_steps") as Array).size()
 	if not on:
 		_close_sheet()
 	_card.visible = on and world.selected != null
+	if _tutorial != null and is_instance_valid(_tutorial):
+		_tutorial.visible = on
+		_place_tutorial.call_deferred()
 
 
 # --- Top bar ---------------------------------------------------------------------------------
@@ -234,6 +235,7 @@ func open_page(id: StringName) -> void:
 	_sheet_title.text = tr(spec["label"])
 	_sheet.visible = true
 	_layout_sheet()
+	_place_tutorial.call_deferred()
 	if id == &"species":
 		tutorial_event(&"evolution_opened")
 
@@ -245,6 +247,7 @@ func _close_sheet() -> void:
 	_page_id = &""
 	if _sheet != null:
 		_sheet.visible = false
+	_place_tutorial.call_deferred()
 
 
 # --- Creature card --------------------------------------------------------------------------------
@@ -262,6 +265,7 @@ func _on_selection(a: Node) -> void:
 	_card.show_agent(a)
 	if a != null:
 		tutorial_event(&"creature_selected")
+	_place_tutorial.call_deferred()
 
 
 # --- Tutorial ----------------------------------------------------------------------------------
@@ -277,9 +281,29 @@ func _build_tutorial() -> void:
 	_tutorial.setup(&"world")
 
 
+## Short landscape screens: the tutorial card goes between the creature card
+## and the side sheet / page rail; with no room for it, it waits hidden.
+func _place_tutorial() -> void:
+	if _tutorial == null or not is_instance_valid(_tutorial):
+		return
+	var tut := _tutorial as Control
+	var origin := _layout.get_global_rect().position.x
+	var left := 8.0
+	if _card.visible:
+		left = _card.get_global_rect().end.x - origin + 8.0
+	var right := _rail.get_global_rect().position.x - origin
+	if _sheet.visible:
+		right = minf(right, _sheet.get_global_rect().position.x - origin)
+	tut.offset_left = left
+	var fits := left + tut.get_combined_minimum_size().x <= right - 8.0
+	var steps_left: bool = int(_tutorial.get("_index")) < (_tutorial.get("_steps") as Array).size()
+	tut.visible = fits and steps_left and world.controller == null
+
+
 func tutorial_event(id: StringName) -> void:
 	if _tutorial != null and is_instance_valid(_tutorial):
 		_tutorial.on_event(id)
+		_place_tutorial.call_deferred()
 
 
 # --- Menu ---------------------------------------------------------------------------------------

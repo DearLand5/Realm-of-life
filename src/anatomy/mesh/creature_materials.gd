@@ -8,6 +8,8 @@ extends RefCounted
 const SHADER_PATHS := {
 	&"body": "res://shaders/creature.gdshader",
 	&"body_translucent": "res://shaders/creature_translucent.gdshader",
+	&"body_lite": "res://shaders/creature_lite.gdshader",
+	&"body_translucent_lite": "res://shaders/creature_lite_translucent.gdshader",
 	&"hard": "res://shaders/creature_hard.gdshader",
 	&"eye": "res://shaders/creature_eye.gdshader",
 	&"membrane": "res://shaders/creature_membrane.gdshader",
@@ -32,6 +34,10 @@ const VAL_JITTER := 0.07
 
 static var _materials := {}
 
+## Lightweight body shading (set from the "creature_shading" setting; on by
+## default on phones, whose GPU drivers may fail to build the full body shader).
+static var lite := false
+
 
 ## Shared material of a kind (CreatureBuildContext.KIND_* or &"body_translucent",
 ## &"xray", &"shadow"). Never modify the returned material per creature: use
@@ -51,9 +57,10 @@ static func material(kind: StringName) -> ShaderMaterial:
 
 ## Body material kind for a model: translucent for membrane-covered bodies.
 static func body_kind(model: AnatomyModel) -> StringName:
-	if model != null and not model.coverings.is_empty() and model.coverings[0].type == &"membrane":
-		return &"body_translucent"
-	return &"body"
+	var translucent := model != null and not model.coverings.is_empty() and model.coverings[0].type == &"membrane"
+	if lite:
+		return &"body_translucent_lite" if translucent else &"body_lite"
+	return &"body_translucent" if translucent else &"body"
 
 
 static func type_id(t: StringName) -> int:

@@ -29,6 +29,8 @@ const TYPE := &"Realm"
 const BASE_TOUCH := 52.0
 ## Physical size a touch target should reach on phones (Android/iOS guidance ≈ 7–9 mm).
 const TARGET_TOUCH_MM := 7.5
+## Upper bound of the automatic phone enlargement (see device_factor()).
+const MAX_DEVICE_FACTOR := 1.1
 const FONT_SIZES := {"tiny": 13, "small": 15, "normal": 18, "large": 23, "title": 30, "huge": 44}
 
 static var _cache: Theme
@@ -95,6 +97,9 @@ static func colorblind_mode() -> StringName:
 ## On phones/tablets, enlarges the UI so a 52 px target is ≥ TARGET_TOUCH_MM
 ## physically. 1.0 on desktop and in headless runs.
 static func device_factor() -> float:
+	var forced := OS.get_environment("RL_DEVICE_FACTOR")   # screenshot tools emulate phones
+	if forced != "":
+		return float(forced)
 	if not OS.has_feature("mobile"):
 		return 1.0
 	var dpi := DisplayServer.screen_get_dpi()
@@ -103,7 +108,9 @@ static func device_factor() -> float:
 		return 1.0
 	var phys_per_px := absf(tree.root.get_final_transform().get_scale().x)
 	var mm := BASE_TOUCH * phys_per_px / float(dpi) * 25.4
-	return snappedf(clampf(TARGET_TOUCH_MM / maxf(mm, 0.1), 1.0, 1.8), 0.05)
+	# Landscape phones have only ~65 mm of screen height: a larger UI no longer
+	# fits (menus run off screen, panels overlap), so the boost is capped.
+	return snappedf(clampf(TARGET_TOUCH_MM / maxf(mm, 0.1), 1.0, MAX_DEVICE_FACTOR), 0.05)
 
 
 # --- Data palettes ------------------------------------------------------------------

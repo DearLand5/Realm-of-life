@@ -5,13 +5,14 @@ extends Node
 ##   * scene transitions with a payload (e.g. which species to edit);
 ##   * persistent user settings and the player's species library.
 
-const VERSION := "0.1.0"
+const VERSION := "0.1.1"
 const SCENE_MENU := "res://scenes/main_menu.tscn"
 const SCENE_EDITOR := "res://scenes/creature_editor.tscn"
 const SCENE_WORLD := "res://scenes/world.tscn"
 
 const DEFAULT_SETTINGS := {
 	"quality": "auto",          # auto | low | medium | high
+	"creature_shading": "auto", # auto (simple on phones) | full | lite
 	"ui_scale": 1.0,
 	"text_scale": 1.0,
 	"language": "ru",
@@ -78,6 +79,8 @@ func apply_settings() -> void:
 	if bool(settings.get("battery_saver", false)):
 		cap = mini(cap, 30)
 	Engine.max_fps = cap
+	var shading := str(settings.get("creature_shading", "auto"))
+	CreatureMaterials.lite = shading == "lite" or (shading == "auto" and OS.has_feature("mobile"))
 
 
 ## Changes scene with a payload readable via `Game.take_pending()`.

@@ -88,7 +88,9 @@ func _attach_tutorial() -> void:
 	var overlay: Control = load("res://src/tutorial/tutorial_overlay.gd").new()
 	add_child(overlay)
 	overlay.setup(&"editor")
-	overlay.offset_top = 150
+	# Right of the mode rail and below the top bar, so no editor control is covered.
+	overlay.offset_left = 112.0 * UITheme.ui_scale()
+	overlay.offset_top = 130.0 * UITheme.ui_scale()
 	tutorial_event.connect(overlay.on_event)
 
 

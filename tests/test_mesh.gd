@@ -262,3 +262,18 @@ func test_huge_and_tiny_creatures() -> void:
 			_check_buffer(d.buffers[kind], m.bones.size(), "scale %s %s" % [sc, kind])
 		var bb: AABB = (d.buffers[CreatureBuildContext.KIND_BODY] as MeshBuffer).aabb()
 		check(bb.size.length() > m.aabb.size.length() * 0.3 and bb.size.length() < m.aabb.size.length() * 3.0, "scale %s mesh matches model extent" % sc)
+
+
+func test_lite_body_material_routing() -> void:
+	var was := CreatureMaterials.lite
+	var animal := AnatomyCompiler.compile(BodyPlanPresets.create(&"grazer"))
+	var cell := AnatomyCompiler.compile(BodyPlanPresets.create(&"cell"))
+	CreatureMaterials.lite = false
+	check(CreatureMaterials.body_kind(animal) == &"body", "full shading: opaque body")
+	CreatureMaterials.lite = true
+	check(CreatureMaterials.body_kind(animal) == &"body_lite", "lite shading: lite body")
+	check(CreatureMaterials.body_kind(cell) == &"body_translucent_lite", "lite shading: translucent cell")
+	for kind in [&"body_lite", &"body_translucent_lite"]:
+		var mat := CreatureMaterials.material(kind)
+		check(mat.shader != null and mat.shader.code.length() > 0, "%s shader loads" % kind)
+	CreatureMaterials.lite = was

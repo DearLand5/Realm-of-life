@@ -479,5 +479,11 @@ vec3 cv_bump(vec3 n, vec3 pos, float h, float strength) {
 		return n;
 	}
 	vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
-	return normalize(abs(det) * n - grad);
+	vec3 b = abs(det) * n - grad;
+	float l2 = dot(b, b);
+	// Guards against underflow / NaN with low-precision derivatives on phones.
+	if (!(l2 > 0.0) || l2 != l2) {
+		return n;
+	}
+	return b * inversesqrt(l2);
 }

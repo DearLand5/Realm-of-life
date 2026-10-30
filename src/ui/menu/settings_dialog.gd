@@ -33,6 +33,13 @@ func _build() -> void:
 		str(_val("quality", "auto")), EnumPicker.Mode.SEGMENTED)
 	q.selected.connect(func(id: Variant) -> void: _set_s("quality", str(id)))
 	col.add_child(q)
+	var sh := EnumPicker.make(tr("Материалы существ"), [
+		{"id": "auto", "label": tr("Авто")}, {"id": "full", "label": tr("Детальные")},
+		{"id": "lite", "label": tr("Простые")}],
+		str(_val("creature_shading", "auto")), EnumPicker.Mode.SEGMENTED)
+	sh.selected.connect(func(id: Variant) -> void: _set_s("creature_shading", str(id)))
+	col.add_child(sh)
+	col.add_child(MenuUI.dim_label(tr("«Простые» — облегчённый шейдер тела для телефонов. Включите, если тела существ не видны.")))
 	col.add_child(_toggle("battery_saver", tr("Экономия батареи"), tr("Ограничить до 30 кадров в секунду"), &"sun"))
 	# Interface
 	col.add_child(MenuUI.section(tr("Интерфейс"), &"grid"))

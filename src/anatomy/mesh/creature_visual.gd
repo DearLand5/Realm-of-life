@@ -134,7 +134,7 @@ func _make_instance(node_name: String) -> MeshInstance3D:
 
 
 func _update_materials() -> void:
-	var translucent := CreatureMaterials.body_kind(model) == &"body_translucent"
+	var translucent := String(CreatureMaterials.body_kind(model)).begins_with("body_translucent")
 	if _body != null:
 		_body.material_override = CreatureMaterials.material(&"xray") if _xray else CreatureMaterials.material(CreatureMaterials.body_kind(model))
 		_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if _xray else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
