@@ -73,7 +73,7 @@ func _fill_phys() -> void:
 		return
 	for ch in _phys.get_children():
 		_phys.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var pf := ctx.doc.phenotype.physiology
 	_phys.add_child(EditorUI.kv(tr("Базовый обмен"), "%s Вт" % UIFormat.number(pf.bmr_watts, 1)))
 	_phys.add_child(EditorUI.kv(tr("Запас энергии"), "%s кДж" % UIFormat.number(pf.max_energy / 1000.0, 0)))
@@ -110,9 +110,9 @@ func _rule_toggle(title: String, desc: String, key: String) -> ToggleRow:
 func _trait(id: StringName) -> Control:
 	var box := VBoxContainer.new()
 	box.add_child(TraitSlider.make(ctx, id, &"biology", _fill_phys))
-	var d := TraitCatalog.get_def(id)
-	var cap := EditorUI.caption(str(d.get("scope", "")))
-	cap.add_theme_font_size_override("font_size", 14)
 	if ctx.hints:
+		var d := TraitCatalog.get_def(id)
+		var cap := EditorUI.caption(str(d.get("scope", "")))
+		cap.add_theme_font_size_override("font_size", 14)
 		box.add_child(cap)
 	return box

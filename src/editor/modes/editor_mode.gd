@@ -18,6 +18,12 @@ func setup(c: EditorContext) -> void:
 			panel.rebuild_segments())
 
 
+func _exit_tree() -> void:
+	if panel != null:
+		panel.dispose()
+		panel = null
+
+
 func mark_dirty() -> void:
 	_dirty = true
 
@@ -26,10 +32,12 @@ func ensure_built() -> void:
 	if not _dirty:
 		return
 	_dirty = false
+	if panel != null:
+		panel.dispose()
 	panel = null
 	for ch in get_children():
 		remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	build()
 
 

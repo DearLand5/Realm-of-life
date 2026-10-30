@@ -26,7 +26,7 @@ func _fill_summary() -> void:
 		return
 	for ch in _summary.get_children():
 		_summary.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var st := ctx.doc.phenotype.anatomy.stats
 	var mouth: Dictionary = st.get("mouth", {})
 	if int(mouth.get("count", 0)) == 0:

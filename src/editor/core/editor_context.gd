@@ -124,3 +124,13 @@ func actions_selected() -> Array:
 	for id in doc.selection:
 		out.append(id)
 	return out
+
+
+## Drops every signal connection of the context and its document. UI lambdas
+## capture the context, which would otherwise keep it (and the whole design)
+## alive in a reference cycle after the editor scene is freed.
+func shutdown() -> void:
+	for sig in [mode_changed, segment_changed, view_changed, action_requested, tutorial_event, toast, stage_focus,
+			doc.changed, doc.selection_changed, doc.edited]:
+		for c in (sig as Signal).get_connections():
+			(sig as Signal).disconnect(c["callable"])

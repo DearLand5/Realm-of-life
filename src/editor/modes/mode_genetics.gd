@@ -70,7 +70,7 @@ func _trait_row(id: StringName) -> Control:
 func _fill_alleles(box: VBoxContainer, id: StringName, main: ParamSlider, info: Label) -> void:
 	for ch in box.get_children():
 		box.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var ti := TraitCatalog.index_of(id)
 	var d := TraitCatalog.get_def(id)
 	var ls := TraitCatalog.locus_start(ti)

@@ -45,7 +45,7 @@ func refresh() -> void:
 		return
 	for ch in _row.get_children():
 		_row.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var s := compute(ctx.doc)
 	_chip(&"scale", "%s · %s" % [s["mass"], tr("%s м") % UIFormat.number(float(s["length"]), 2)], true)
 	_chip(&"paw", tr("%s м/с") % UIFormat.number(float(s["walk"]), 1) if float(s["walk"]) > 0.0 else "—", float(s["walk"]) > 0.0)

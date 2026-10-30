@@ -4,6 +4,23 @@ extends RefCounted
 ## short and visually consistent).
 
 
+## Tests free nodes immediately (no frames run); the game defers.
+static var immediate_free := false
+
+
+## Removes and frees a child (deferred unless `immediate_free`). Safe to call on
+## nodes that are not in a tree.
+static func dispose(n: Node) -> void:
+	if n == null or not is_instance_valid(n):
+		return
+	if n.get_parent() != null:
+		n.get_parent().remove_child(n)
+	if immediate_free:
+		n.free()
+	else:
+		n.queue_free()
+
+
 static func caption(text: String, dim: bool = true) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -60,6 +77,10 @@ static func kv(label_text: String, value_text: String, value_role: StringName = 
 	a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var b := Label.new()
 	b.text = value_text
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.custom_minimum_size.x = 60.0
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.size_flags_stretch_ratio = 1.3
 	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	if value_role != &"":
 		b.theme_type_variation = value_role

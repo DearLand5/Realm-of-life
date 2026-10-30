@@ -8,7 +8,7 @@ extends Control
 ##   rotate       — drag: aim the part (yaw / pitch) at the finger.
 ## Handles work in both gesture modes; they are hit-tested before picking.
 
-const HIT_R := 30.0
+const HIT_R := 26.0
 const DOT_R := 14.0
 const HANDLE_R := 17.0
 
@@ -20,6 +20,11 @@ var _handles: Array[Dictionary] = []
 var _active := ""
 var _scale := 1.0
 var _hint_t := 0.0
+var _axis_a := Vector3.ZERO
+var _axis_dir := Vector3.UP
+var _begin_len := 0.1
+var _begin_rad := 0.1
+var _begin_param := 1.0
 
 
 func setup(c: EditorContext, s: EditorStage) -> void:
@@ -140,7 +145,44 @@ func begin_drag(id: String, pos: Vector2) -> bool:
 	if id == "move":
 		var part := ctx.doc.selected_part()
 		return dragger.begin(part.id, current_instance())
+	if id == "length" or id == "radius":
+		return _begin_axis_drag(id, pos)
 	return true
+
+
+## Length / radius drags are measured in 3D against the bone axis, so they stay
+## well-behaved when the bone is foreshortened on screen.
+func _begin_axis_drag(id: String, pos: Vector2) -> bool:
+	var m := ctx.doc.phenotype.anatomy
+	var inst_idx := current_instance()
+	var part := ctx.doc.selected_part()
+	if inst_idx < 0 or part == null or part.segments.is_empty():
+		_active = ""
+		return false
+	var inst := m.instances[inst_idx]
+	var k := clampi(ctx.active_segment(), 0, inst.bones.size() - 1)
+	var bone := m.bones[inst.bones[k]]
+	_axis_a = bone.start
+	_axis_dir = (bone.end - bone.start).normalized()
+	var seg: BodySegment = part.segments[clampi(ctx.active_segment(), 0, part.segments.size() - 1)]
+	_begin_len = seg.length
+	_begin_rad = seg.radius
+	_begin_param = _axis_measure(id, pos)
+	if _begin_param < 1e-6:
+		_active = ""
+		return false
+	return true
+
+
+## Length: finger projection along the axis; radius: finger distance from the axis.
+func _axis_measure(id: String, pos: Vector2) -> float:
+	var ray := stage.ray_geo(pos)
+	var o: Vector3 = ray["origin"]
+	var d: Vector3 = ray["dir"]
+	var pts := Geometry3D.get_closest_points_between_segments(o, o + d * 1.0e3, _axis_a - _axis_dir * 100.0, _axis_a + _axis_dir * 100.0)
+	if id == "length":
+		return (pts[1] - _axis_a).dot(_axis_dir)
+	return (pts[0] as Vector3).distance_to(pts[1])
 
 
 func drag(pos: Vector2, rel: Vector2) -> void:
@@ -148,12 +190,9 @@ func drag(pos: Vector2, rel: Vector2) -> void:
 		"move":
 			dragger.update(pos)
 		"length", "radius":
-			var h := _find(_active)
-			if h.is_empty():
-				return
-			var u: Vector2 = h["u"]
-			var factor := clampf(1.0 + rel.dot(u) / float(h["len_px"]), 0.5, 2.0)
-			_scale_segment(_active, factor)
+			var cur := _axis_measure(_active, pos)
+			var ratio := clampf(cur / _begin_param, 0.1, 6.0)
+			_set_segment(_active, _begin_len * ratio if _active == "length" else _begin_rad * ratio)
 		"rotate":
 			_rotate_to(pos)
 
@@ -180,7 +219,7 @@ func _find(id: String) -> Dictionary:
 	return {}
 
 
-func _scale_segment(which: String, factor: float) -> void:
+func _set_segment(which: String, value: float) -> void:
 	var pid := ctx.doc.selected_id
 	var seg := ctx.active_segment()
 	ctx.doc.live_edit(func(g: Genome) -> void:
@@ -189,9 +228,9 @@ func _scale_segment(which: String, factor: float) -> void:
 			return
 		var s: BodySegment = p.segments[clampi(seg, 0, p.segments.size() - 1)]
 		if which == "length":
-			s.length = clampf(s.length * factor, 0.005, 20.0)
+			s.length = clampf(value, 0.005, 20.0)
 		else:
-			s.radius = clampf(s.radius * factor, 0.001, 10.0))
+			s.radius = clampf(value, 0.001, 10.0))
 
 
 func _rotate_to(pos: Vector2) -> void:

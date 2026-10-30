@@ -34,6 +34,8 @@ var _ground_mat: ShaderMaterial
 var _sun: DirectionalLight3D
 var _view_rect := Rect2()
 var _first := true
+## No mesh building (headless tests: no renderer, no worker threads).
+var skip_meshes := DisplayServer.get_name() == "headless"
 
 
 func setup(context: EditorContext) -> void:
@@ -108,6 +110,7 @@ func _build_environment() -> void:
 
 func _on_doc_changed(reason: StringName) -> void:
 	_model = ctx.doc.phenotype.anatomy
+	driver.set_phenotype(ctx.doc.phenotype)
 	if reason == &"load":
 		_first = true
 		_update_scale(true)
@@ -154,7 +157,7 @@ func _update_scale(force: bool) -> void:
 
 
 func _kick() -> void:
-	if _inflight or _model == null:
+	if _inflight or _model == null or skip_meshes:
 		return
 	var m := _model
 	var lod := _wanted_lod
@@ -179,8 +182,7 @@ func _swap(m: AnatomyModel, lod: int) -> void:
 	v.scale = Vector3.ONE * stage_scale
 	add_child(v)
 	if visual != null:
-		visual.queue_free()
-		visual.get_parent().remove_child(visual)
+		EditorUI.dispose(visual)
 	visual = v
 	v.set_xray(ctx.xray)
 	driver.attach(v, ctx.doc.phenotype)

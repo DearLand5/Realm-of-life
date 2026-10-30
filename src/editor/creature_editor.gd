@@ -231,8 +231,7 @@ var _rail_portrait := false
 ## (nine labelled tabs do not fit the short screen side).
 func _build_rail(portrait: bool = false) -> void:
 	if _rail != null:
-		_rail.queue_free()
-		remove_child(_rail)
+		EditorUI.dispose(_rail)
 	_rail_portrait = portrait
 	_rail = TabStrip.new()
 	_rail.fill = true
@@ -261,6 +260,11 @@ func _build_test_panel() -> void:
 
 
 # --- Layout -------------------------------------------------------------------------------------
+
+func _exit_tree() -> void:
+	if ctx != null:
+		ctx.shutdown()
+
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -387,6 +391,8 @@ func _on_mode_changed(m: StringName) -> void:
 	_rail.current = m
 	var info := PartPanel.mode_info(m)
 	_mode_title.text = "%s — %s" % [tr(info["label"]), tr(info["tip"])]
+	_sel_bar.visible = m not in [&"biology", &"genetics"]
+	_sel_bar.nav.visible = _sel_bar.visible
 	_scroll.scroll_vertical = 0
 	if m == &"diagnostics":
 		ctx.tutorial_event.emit(&"editor_diagnostics_opened")

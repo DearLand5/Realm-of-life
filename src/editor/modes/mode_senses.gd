@@ -29,7 +29,7 @@ func _fill_summary() -> void:
 		return
 	for ch in _summary.get_children():
 		_summary.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var sp := ctx.doc.phenotype.senses
 	if sp.eye_count == 0:
 		_summary.add_child(EditorUI.kv(tr("Зрение"), tr("нет глаз")))

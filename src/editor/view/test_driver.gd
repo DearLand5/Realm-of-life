@@ -15,10 +15,14 @@ var _wing_side: Array[float] = []
 var _speed_mps := 1.0
 
 
-func attach(v: CreatureVisual, ph: Phenotype) -> void:
-	_visual = v
+func set_phenotype(ph: Phenotype) -> void:
 	_ph = ph
 	_collect_wings()
+
+
+func attach(v: CreatureVisual, ph: Phenotype) -> void:
+	_visual = v
+	set_phenotype(ph)
 	if not active:
 		set_process(false)
 	_apply(0.0)
@@ -36,6 +40,8 @@ static func best_medium(lp: LocomotionProfile) -> StringName:
 
 
 func start(m: StringName = &"") -> void:
+	if _ph == null:
+		return
 	medium = m if m != &"" else best_medium(_ph.locomotion)
 	_speed_mps = clampf(maxf(_ph.locomotion.speed_in(medium), 0.1), 0.1, 40.0)
 	active = true

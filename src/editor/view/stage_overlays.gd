@@ -57,7 +57,7 @@ func _build(ctx: EditorContext, model: AnatomyModel) -> ArrayMesh:
 		var base := atan2(h.x, h.z)   # angle of h measured from +Z around Y
 		var half := deg_to_rad(clampf(fov, 10.0, 360.0) * 0.5)
 		var steps := maxi(6, int(fov / 6.0))
-		var col := Color(0.37, 0.84, 0.66, 0.34 if selected else 0.15)
+		var col := Color(0.95, 0.78, 0.38, 0.5 if selected else 0.26)
 		var rim := Color(col.r, col.g, col.b, 0.02)
 		var prev := Vector3.ZERO
 		for i in steps + 1:

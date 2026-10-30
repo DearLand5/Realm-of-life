@@ -27,6 +27,14 @@ func _init(c: EditorContext) -> void:
 	ctx = c
 
 
+## Releases the spec panels (see SpecPanel.dispose).
+func dispose() -> void:
+	if spec != null:
+		spec.dispose()
+	if _seg_spec != null:
+		_seg_spec.dispose()
+
+
 func refresh() -> void:
 	if spec != null:
 		spec.refresh()
@@ -113,7 +121,7 @@ func _build_segments(part: BodyPart, joints_only: bool) -> void:
 		return
 	for ch in _seg_box.get_children():
 		_seg_box.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var n := part.segments.size()
 	var cur := ctx.active_segment()
 	var chips := []
@@ -132,6 +140,8 @@ func _build_segments(part: BodyPart, joints_only: bool) -> void:
 				ctx.doc.modify(TranslationServer.translate("Убрать сегмент"), func(g: Genome) -> void:
 					EditorCommands.remove_segment(g.body_plan.get_part(pid), cur), &"shape", &"structure"), &"", TranslationServer.translate("Удалить выбранный сегмент")),
 		]))
+	if _seg_spec != null:
+		_seg_spec.dispose()
 	_seg_spec = SpecPanel.new(ctx, part.id)
 	var items: Array = PanelSpec.joint_items() if joints_only else PanelSpec.segment_items(true)
 	_seg_spec.add_items(_seg_box, items, cur)

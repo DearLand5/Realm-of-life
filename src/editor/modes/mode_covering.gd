@@ -101,7 +101,7 @@ func build() -> void:
 
 func _fill_summary() -> void:
 	for ch in _summary.get_children():
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var c := ctx.doc.plan().coverings[_slot]
 	_summary.add_child(EditorUI.kv(tr("Теплоизоляция"), "%d %%" % int(c.insulation() * 100.0)))
 	_summary.add_child(EditorUI.kv(tr("Броня"), "%d %%" % int(c.armor() * 100.0)))

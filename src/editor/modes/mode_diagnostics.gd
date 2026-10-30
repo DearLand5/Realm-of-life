@@ -33,7 +33,7 @@ func _fill() -> void:
 		return
 	for ch in _body.get_children():
 		_body.remove_child(ch)
-		ch.queue_free()
+		EditorUI.dispose(ch)
 	var items := ctx.doc.diagnostics
 	var v := AnatomyDiagnostics.viability(items)
 	var head := Card.make(tr("Жизнеспособность"), &"check")

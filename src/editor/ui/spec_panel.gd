@@ -28,6 +28,12 @@ func refresh() -> void:
 		r.call()
 
 
+## Breaks the reference cycle (refresher lambdas capture `self`). Call when the
+## widgets built by this panel are discarded.
+func dispose() -> void:
+	_refreshers.clear()
+
+
 ## Adds a widget per item. `seg` is the segment index for &"segment" items.
 func add_items(box: Container, items: Array, seg: int = 0) -> void:
 	for it in items:
@@ -213,7 +219,10 @@ func _enum(item: Dictionary, seg: int, label: String, cur: Variant) -> Control:
 	for o in item.get("options", []):
 		var txt: String = str(labels.get(StringName(str(o)), labels.get(str(o), PartSchema.enum_label(str(o)))))
 		items.append({"id": str(o), "label": txt})
-	var p := EnumPicker.make(label, items, str(cur))
+	var chars := 0
+	for it in items:
+		chars += str(it["label"]).length()
+	var p := EnumPicker.make(label, items, str(cur), EnumPicker.Mode.SEGMENTED if items.size() <= 3 and chars <= 20 else EnumPicker.Mode.SHEET)
 	p.selected.connect(func(id: Variant) -> void: _edit(item, seg, str(id), true))
 	_refreshers.append(func() -> void:
 		var q := part()

@@ -231,3 +231,75 @@ func test_catalog_entries_place_and_compile() -> void:
 		g.invalidate()
 		var ph := Phenotype.build(g)
 		check(ph.anatomy.bones.size() > 0 and PartPicker.first_instance(ph.anatomy, nid) >= 0, "compiles %s" % e["id"])
+
+
+func test_editor_scene_smoke() -> void:
+	var game: Node = UIApp.game()
+	check(game != null, "Game autoload available")
+	if game == null:
+		return
+	EditorUI.immediate_free = true
+	# UIOverlay.ensure() adds itself deferred (no frames run here): provide one directly.
+	var overlay := UIOverlay.new()
+	Engine.get_main_loop().root.add_child(overlay)
+	UIOverlay._instance = overlay
+	game.set("pending", {"preset": "predator"})
+	var ed: CreatureEditor = load("res://scenes/creature_editor.tscn").instantiate()
+	ed.auto_start_picker = false
+	var seen: Array[StringName] = []
+	ed.tutorial_event.connect(func(id: StringName) -> void: seen.append(id))
+	Engine.get_main_loop().root.add_child(ed)
+	check(ed.doc != null and ed.doc.plan().name == "Пятнистый хищник", "preset payload loaded")
+	for m in EditorContext.MODES:
+		ed.ctx.set_mode(m["id"])
+		ed.doc.select(ed.doc.plan().root_id)
+		ed.doc.select(-1)
+	ed.ctx.set_mode(&"limbs")
+	var n0 := ed.doc.plan().parts.size()
+	ed.ctx.request(&"add", {"id": "wing_feather"})
+	check(ed.doc.plan().parts.size() == n0 + 1 and ed.doc.selected_part().kind == &"wing", "catalogue add selects new wing")
+	check(seen.has(&"editor_part_added") and seen.has(&"editor_shape_changed"), "part-added tutorial events")
+	ed.ctx.request(&"duplicate")
+	check(ed.doc.plan().parts.size() == n0 + 2, "duplicate")
+	ed.ctx.request(&"delete")
+	check(ed.doc.plan().parts.size() == n0 + 1, "delete")
+	check(ed.doc.undo() and ed.doc.plan().parts.size() == n0 + 2, "undo delete")
+	ed.ctx.set_mode(&"biology")
+	ed.doc.modify("bio", func(g: Genome) -> void: g.body_plan.biology["diet"] = "omnivore", &"biology")
+	check(seen.has(&"editor_biology_changed"), "biology tutorial event")
+	ed.ctx.set_mode(&"diagnostics")
+	check(seen.has(&"editor_diagnostics_opened"), "diagnostics tutorial event")
+	ed.ctx.request(&"test")
+	ed.ctx.request(&"stop_test")
+	ed.free()
+	overlay.free()
+	UIOverlay._instance = null
+	EditorUI.immediate_free = false
+
+
+func test_diagnostics_part_lookup() -> void:
+	var g := BodyPlanPresets.create(&"spider")
+	var plan := g.body_plan
+	var leg := plan.parts_of_kind(&"limb")[0]
+	var txt := "Конечность «%s» не достаёт до земли." % EditorContext.part_name(leg)
+	check(ModeDiagnostics.related_part(plan, txt) >= 0, "quoted part name resolves")
+	check(ModeDiagnostics.related_part(plan, "Нет кавычек") == -1, "no quotes → none")
+
+
+func test_stats_strip_values() -> void:
+	var doc := _doc(&"bird")
+	var s := StatsStrip.compute(doc)
+	check(float(s["fly"]) != 0.0, "bird can fly")
+	check(float(s["bmr"]) > 0.0 and str(s["mass"]) != "", "bmr and mass present")
+
+
+func test_orientation_inverse() -> void:
+	var doc := _doc(&"predator")
+	var m := doc.phenotype.anatomy
+	var eye := _first_of(doc.plan(), &"eye")
+	var inst := PartPicker.first_instance(m, eye.id)
+	var dir := AttachMapper.instance_direction(m, inst)
+	var o := AttachMapper.orientation_for_direction(m, doc.plan(), inst, dir)
+	check(o["ok"], "orientation ok")
+	near(float(o["yaw"]), eye.yaw, 1.5, "yaw recovered")
+	near(float(o["pitch"]), eye.pitch, 1.5, "pitch recovered")
