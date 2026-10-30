@@ -258,7 +258,7 @@ static func _bird() -> Genome:
 	wing.set_param("wing_type", "feather")
 	wing.set_param("chord", 0.62)
 	wing.covering = 2
-	att(plan, wing, t, 0.75, 62.0, 0.85, 1, -56.0, 0.0, 0.0, "Крыло")
+	att(plan, wing, t, 0.75, 62.0, 0.85, 1, -46.0, 0.0, 0.0, "Крыло")
 	var leg := chain(&"limb", 0.014, [[0.06, 0.012, 0, 22], [0.07, 0.008, 0, -34], [0.03, 0.006, 0, 62]], &"walk")
 	leg.set_param("foot", "claw")
 	leg.covering = 1
@@ -287,14 +287,14 @@ static func _fish() -> Genome:
 	]
 	plan.coverings[0].iridescence = 0.5
 	plan.biology = {"habitat": "water", "reproduction_mode": "sexual", "reproduction_method": "eggs", "diet": "omnivore"}
-	var torso := _set_muscle(chain(&"torso", 0.04, [[0.12, 0.06, 0, 0, 1.7], [0.15, 0.068, 0, 0, 1.7], [0.15, 0.05, 0, 0, 1.6], [0.12, 0.022, 0, 0, 1.4]]), 0.6, 0.6)
+	var torso := _set_muscle(chain(&"torso", 0.02, [[0.12, 0.042, 0, 0, 1.45], [0.15, 0.062, 0, 0, 1.6], [0.15, 0.068, 0, 0, 1.7], [0.12, 0.06, 0, 0, 1.65]]), 0.6, 0.6)
 	var t := plan.add_part(torso)
-	var head := att(plan, chain(&"head", 0.055, [[0.09, 0.045, 0, 0, 1.4], [0.04, 0.025, -5, 0, 1.2]]), t, 1.0, 0.0, 0.0, 0, 0, 0, 0, "Голова")
+	var head := att(plan, chain(&"head", 0.06, [[0.07, 0.05, -2, 0, 1.45], [0.05, 0.026, -6, 0, 1.2]]), t, 1.0, 0.0, 0.0, 0, 0, 0, 0, "Голова")
 	att(plan, point(&"eye", {"eye_type": "camera", "size": 0.36, "fov": 175.0, "acuity": 0.6, "night_vision": 0.5, "iris_color": Color(0.8, 0.7, 0.3)}), head, 0.55, 22.0, 0.92, 1, 0.0, 15.0, 0.0, "Глаз")
 	att(plan, point(&"mouth", {"mouth_type": "jaws", "teeth": "mixed", "size": 0.6, "bite_force": 0.3}), head, 1.0, 270.0, 0.25)
-	att(plan, point(&"gill", {"area": 1.4, "slits": 4}), head, 0.1, 10.0, 0.97, 1, 0.0, 0.0, 0.0, "Жабры")
+	att(plan, point(&"gill", {"area": 1.4, "slits": 1}), head, 0.1, 10.0, 0.97, 1, 0.0, 0.0, 0.0, "Жабры")
 	att(plan, point(&"sensor", {"sensor_type": "vibration", "sensitivity": 0.7, "size": 0.1}), t, 0.6, 5.0, 0.98, 1, 0.0, 0.0, 0.0, "Боковая линия")
-	var caudal := chain(&"fin", 0.025, [[0.13, 0.008, 0]], &"swim")
+	var caudal := chain(&"fin", 0.02, [[0.13, 0.008, 0]], &"swim")
 	caudal.set_param("fin_type", "caudal")
 	caudal.set_param("fin_area", 2.2)
 	caudal.covering = 1
@@ -532,7 +532,7 @@ static func _jellyfish() -> Genome:
 		CoveringDef.make(&"membrane", Color(0.95, 0.7, 0.9), Color(0.7, 0.95, 1.0), &"none"),
 	]
 	plan.biology = {"habitat": "water", "reproduction_mode": "sexual", "reproduction_method": "eggs", "diet": "filter"}
-	var t := plan.add_part(_set_muscle(chain(&"torso", 0.14, [[0.05, 0.19], [0.08, 0.17], [0.07, 0.11], [0.03, 0.03]]), 0.3, 0.3))
+	var t := plan.add_part(_set_muscle(chain(&"torso", 0.15, [[0.04, 0.2], [0.06, 0.185], [0.05, 0.12], [0.025, 0.035]]), 0.3, 0.3))
 	var tent := chain(&"tentacle", 0.008, [[0.14, 0.007, 0, -4], [0.14, 0.005, 0, 4], [0.14, 0.004, 0, -4], [0.12, 0.002, 0, 3]], &"attack")
 	tent.covering = 1
 	tent.set_param("suckers", false)
