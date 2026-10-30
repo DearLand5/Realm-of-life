@@ -53,9 +53,7 @@ static func base_moisture(w: WorldData, c: Dictionary, seed_value: int) -> void:
 static func finish(w: WorldData, c: Dictionary, seed_value: int) -> void:
 	var res := w.res
 	var n := res * res
-	var size := w.size
 	var div: float = c["biome_diversity"]
-	var sea := w.sea_level
 	# Distances to any water and to fresh water.
 	var any_mask := PackedByteArray()
 	any_mask.resize(n)

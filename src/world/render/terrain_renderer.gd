@@ -71,7 +71,7 @@ func setup(w: WorldData, shared_climate: ClimateState = null) -> void:
 			_chunks.append(c)
 	update_focus(_focus, true)
 	rebuild_pending(true)
-	_apply_uniforms()
+	apply_climate()
 
 
 ## Moves the LOD focus (camera / observed creature). Cheap to call every
@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 	_uniform_timer -= delta
 	if _uniform_timer <= 0.0:
 		_uniform_timer = 0.2
-		_apply_uniforms()
+		apply_climate()
 
 
 func _build(c: TerrainChunk) -> void:
@@ -137,7 +137,7 @@ func _focus_dist(c: TerrainChunk) -> float:
 
 
 ## Seasonal / weather uniforms from the shared climate.
-func _apply_uniforms() -> void:
+func apply_climate() -> void:
 	if material == null:
 		return
 	var look := SeasonalLook.from_climate(climate)

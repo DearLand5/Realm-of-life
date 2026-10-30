@@ -39,7 +39,10 @@ static func build_chunk(w: WorldData, x0: int, z0: int, cells: int) -> ArrayMesh
 			var level := w.water_surface[i] if _open(w, i) else _neighbor_level(w, xs[jx], zs[jz])
 			verts.append(Vector3(-half + float(xs[jx]) * w.cell, level, -half + float(zs[jz]) * w.cell))
 			uv2.append(Vector2(level - w.heights[i], 0.0))
-			near.append(1 if _open_near(w, xs[jx], zs[jz]) else 0)
+			# Land below the water level (e.g. a carved outflow channel) would get a
+			# floating sheet: leave it to the river ribbons.
+			var sinks := not _open(w, i) and w.heights[i] < level - 0.05
+			near.append(1 if _open_near(w, xs[jx], zs[jz]) and not sinks else 0)
 	var idx := PackedInt32Array()
 	for jz in nz - 1:
 		for jx in nx - 1:
@@ -47,7 +50,8 @@ static func build_chunk(w: WorldData, x0: int, z0: int, cells: int) -> ArrayMesh
 			var p10 := p00 + 1
 			var p01 := p00 + nx
 			var p11 := p01 + 1
-			if near[p00] + near[p10] + near[p01] + near[p11] == 0:
+			# Every corner must be open water or (non-sinking) shore next to it.
+			if near[p00] + near[p10] + near[p01] + near[p11] < 4:
 				continue
 			idx.append_array([p00, p10, p11, p00, p11, p01])
 	if idx.is_empty():

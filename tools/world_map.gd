@@ -90,6 +90,8 @@ static func _print_land_stats(w: WorldData) -> void:
 
 func _save_with_legend(img: Image, hist: Dictionary, path: String) -> void:
 	var map_dim := img.get_width()
+	# Draw 1:1 (the project's stretch mode would rescale the canvas).
+	get_root().content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	get_root().size = Vector2i(map_dim + LEGEND_W, map_dim)
 	var bg := ColorRect.new()
 	bg.color = Color(0.09, 0.11, 0.13)

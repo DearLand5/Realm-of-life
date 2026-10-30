@@ -149,11 +149,13 @@ func update_now() -> void:
 	# Less saturated than the sky itself (ground bounce light mixes in).
 	var grey := (amb.r + amb.g + amb.b) / 3.0
 	amb = amb.lerp(Color(grey * 1.05, grey, grey * 0.92), 0.45)
-	var amb_floor := Color(0.1, 0.13, 0.24)
+	var amb_floor := Color(0.2, 0.25, 0.4)   # moonlit sky (sRGB)
 	amb = Color(maxf(amb.r, amb_floor.r), maxf(amb.g, amb_floor.g), maxf(amb.b, amb_floor.b))
 	environment.ambient_light_color = amb
 	environment.ambient_light_energy = lerpf(1.0, 0.8, day) + cloud * 0.25 * day + flash * 0.5
 	environment.fog_light_color = horizon.lerp(amb, 0.25)
+	# Eye adaptation stand-in: brighter exposure at night keeps scenes readable.
+	environment.tonemap_exposure = lerpf(1.7, 1.0, smoothstep(-8.0, 4.0, elev))
 	environment.fog_density = base_fog_density + fog * 0.03 + clampf(c.precipitation, 0.0, 1.0) * 0.004
 	environment.fog_sky_affect = 0.2 + fog * 0.8
 

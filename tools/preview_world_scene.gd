@@ -1,5 +1,12 @@
 extends Node
 ## World preview scene driven by tools/preview_world.gd (see usage there).
+## Debug overrides (environment): PREVIEW_NO_SHADOWS=1, PREVIEW_NO_WATER=1,
+## PREVIEW_WEATHER=<state> (forces the weather of every shot).
+
+const LABELS := {
+	"rain": "Дождь", "snow": "Снег", "fog": "Туман", "storm": "Гроза",
+	"dawn": "Рассвет", "noon": "Полдень", "sunset": "Закат", "night": "Ночь",
+}
 
 var world: WorldData
 var climate: ClimateState
@@ -12,6 +19,7 @@ var weather: WeatherSystem
 var plants: Array[PlantSpecies] = []
 var cam: Camera3D
 var spots: Dictionary = {}
+var caption: Label
 
 
 func run(args: PackedStringArray) -> void:
@@ -26,8 +34,12 @@ func run(args: PackedStringArray) -> void:
 	_build_scene()
 	_find_spots()
 	await get_tree().process_frame
+	if set_name == "final":
+		await _final()
+		return
 	for shot in _shots(set_name):
-		await _render(shot, out_dir)
+		var img: Image = await _render(shot)
+		_save(img, out_dir.path_join("world_%s.png" % shot["name"]))
 
 
 func _build_scene() -> void:
@@ -161,7 +173,40 @@ func _shots(set_name: String) -> Array:
 	return out
 
 
-func _render(shot: Dictionary, out_dir: String) -> void:
+## Committed screenshots: overview, ground, weather sheet, time-of-day sheet.
+func _final() -> void:
+	var by_name := {}
+	for shot in _shots("all"):
+		by_name[shot["name"]] = shot
+	_save(await _render(by_name["overview"]), "res://screenshots/world_overview.png")
+	_save(await _render(by_name["ground"]), "res://screenshots/world_ground.png")
+	_save(await _sheet(by_name, ["rain", "snow", "fog", "storm"]), "res://screenshots/world_weather.png")
+	_save(await _sheet(by_name, ["dawn", "noon", "sunset", "night"]), "res://screenshots/world_times.png")
+
+
+## 2×2 contact sheet of labelled shots at half resolution.
+func _sheet(by_name: Dictionary, names: Array) -> Image:
+	var tiles: Array[Image] = []
+	for n in names:
+		tiles.append(await _render(by_name[n], LABELS.get(n, "")))
+	var tw := tiles[0].get_width() / 2
+	var th := tiles[0].get_height() / 2
+	var out := Image.create(tw * 2, th * 2, false, tiles[0].get_format())
+	for k in tiles.size():
+		var t := tiles[k]
+		t.resize(tw, th, Image.INTERPOLATE_LANCZOS)
+		out.blit_rect(t, Rect2i(0, 0, tw, th), Vector2i((k % 2) * tw, (k / 2) * th))
+	return out
+
+
+func _save(img: Image, path: String) -> void:
+	var abs_path := ProjectSettings.globalize_path(path)
+	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
+	img.save_png(abs_path)
+	print("saved ", abs_path, " ", img.get_size())
+
+
+func _render(shot: Dictionary, label: String = "") -> Image:
 	time.set_season(int(shot.get("season", 1)))
 	var hour := float(shot.get("hour", 12.0))
 	if shot.has("sun"):
@@ -185,6 +230,9 @@ func _render(shot: Dictionary, out_dir: String) -> void:
 	flora.refresh_all()
 	print("%s: flora %d instances, %d draws (%d ms), terrain %d tris" % [shot["name"], flora.instance_count(), flora.draw_calls(), Time.get_ticks_msec() - t0, terrain.triangle_count()])
 	day_night.update_now()
+	terrain.apply_climate()
+	water.apply_climate()
+	flora.apply_climate()
 	if weather.fx != null:
 		weather.fx.lightning_enabled = false
 		weather.focus = pos
@@ -192,21 +240,22 @@ func _render(shot: Dictionary, out_dir: String) -> void:
 		weather.fx.prewarm()
 	for f in 3:
 		await get_tree().process_frame
-	if OS.get_environment("PREVIEW_PROBE") != "":
-		for px in [Vector2(150, 600), Vector2(300, 560), Vector2(1000, 600), Vector2(200, 300)]:
-			var hit := terrain.pick_ray(cam.project_ray_origin(px), cam.project_ray_normal(px))
-			if hit == Vector3.INF:
-				continue
-			var a := terrain.get_attributes()
-			var g := world.world_to_grid(hit.x, hit.z)
-			var i := world.index(int(round(g.x)), int(round(g.y)))
-			var lakes_near := 0
-			for dz in range(-6, 7):
-				for dx in range(-6, 7):
-					var j := world.index(int(round(g.x)) + dx, int(round(g.y)) + dz)
-					if world.water[j] == WorldData.Water.LAKE:
-						lakes_near += 1
-			print("  lake cells within 12 m: ", lakes_near, " water type here ", world.water[i], " surface ", world.water_surface[i], " h ", world.heights[i])
-			print("probe ", px, " hit ", hit, " biome ", Biomes.label(world.biome[i]), " T ", world.temperature[i], " M ", world.moisture[i], " col ", a.colors[i], " shore ", a.shore[i], " rock ", a.rock[i], " n ", a.normals[i])
-	var path := ProjectSettings.globalize_path(out_dir.path_join("world_%s.png" % shot["name"]))
-	await ShotUtil.save_viewport(get_viewport(), path)
+	_set_caption(label)
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	return get_viewport().get_texture().get_image()
+
+
+func _set_caption(text: String) -> void:
+	if caption == null:
+		var layer := CanvasLayer.new()
+		add_child(layer)
+		caption = Label.new()
+		caption.position = Vector2(28, 20)
+		caption.add_theme_font_size_override("font_size", 46)
+		caption.add_theme_color_override("font_color", Color(1, 1, 1))
+		caption.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+		caption.add_theme_constant_override("outline_size", 10)
+		layer.add_child(caption)
+	caption.text = text
+	caption.visible = text != ""

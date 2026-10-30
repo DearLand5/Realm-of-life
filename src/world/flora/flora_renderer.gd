@@ -124,7 +124,7 @@ func setup(w: WorldData, plant_species: Array[PlantSpecies], biomass_provider: C
 				c.jobs.resize(species.size())
 				_chunks.append(c)
 	update_focus(_focus, true)
-	_apply_uniforms()
+	apply_climate()
 
 
 func _build_materials() -> void:
@@ -222,7 +222,7 @@ func _process(delta: float) -> void:
 	_uniform_timer -= delta
 	if _uniform_timer <= 0.0:
 		_uniform_timer = 0.2
-		_apply_uniforms()
+		apply_climate()
 
 
 func _sort_queue() -> void:
@@ -416,7 +416,7 @@ func _height_normal(x: float, z: float) -> Vector4:
 	return Vector4(h, n.x, n.y, n.z) if c >= 0 else Vector4(h, 0, 1, 0)
 
 
-func _apply_uniforms() -> void:
+func apply_climate() -> void:
 	var look := SeasonalLook.from_climate(climate)
 	var snow := 0.0
 	var blossom := 0.0

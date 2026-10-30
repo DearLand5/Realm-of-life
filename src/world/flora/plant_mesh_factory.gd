@@ -74,7 +74,6 @@ static func _broadleaf(b: PlantMeshBuilder, sp: PlantSpecies, lod: int, rng: Ran
 		trunk = PackedVector3Array([trunk[0], trunk[3] + Vector3(0, ch * 0.3, 0)])
 		tr = PackedFloat32Array([r0 * 1.2, r0 * 0.6])
 	b.tube(trunk, tr, sides)
-	var top := trunk[trunk.size() - 1]
 	var crown_c := Vector3(lean.x, trunk_h + ch * 0.5, lean.z)
 	if flat:
 		crown_c.y = h - ch * 0.55

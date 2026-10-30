@@ -39,7 +39,7 @@ func setup(w: WorldData, shared_climate: ClimateState = null) -> void:
 	var rivers := WaterMesher.build_rivers(w)
 	if rivers != null:
 		_add(rivers, river_material, "Rivers")
-	_apply_uniforms()
+	apply_climate()
 
 
 func _add(mesh: ArrayMesh, mat: Material, node_name: String) -> void:
@@ -55,10 +55,10 @@ func _process(delta: float) -> void:
 	_uniform_timer -= delta
 	if _uniform_timer <= 0.0:
 		_uniform_timer = 0.15
-		_apply_uniforms()
+		apply_climate()
 
 
-func _apply_uniforms() -> void:
+func apply_climate() -> void:
 	if material == null:
 		return
 	var wind := Vector2(2.0, 0.5)
