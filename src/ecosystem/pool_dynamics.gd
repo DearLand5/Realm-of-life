@@ -27,6 +27,8 @@ const DISEASE_POOL := 0.01 / DAY          # per (individual per 100 m²)
 const HUNT_SEARCH := 0.05
 const CHASE_TIME := 1800.0
 const NEWBORN_ENERGY := Reproduction.OFFSPRING_START_ENERGY
+## Prey density (per m²) at which half of the prey can be found by predators.
+const REFUGE_DENSITY := 0.3 / 1024.0
 const MAX_HARVEST := 0.5                  # of the available food per sub-step
 const MIN_COUNT := 0.02
 const MATE_SEARCH_S := 3.0 * 86400.0
@@ -39,6 +41,7 @@ var _prefs := PackedFloat32Array()
 var _st: Array[_St] = []
 var _x := PackedFloat32Array()     # predation scratch: attack rate × density × success
 var _hd := PackedFloat32Array()    # handling time
+var _kill := PackedFloat32Array()  # unconstrained kills per prey class
 var _eat := PackedFloat32Array()   # kg eaten per kill
 var _carcass_kg: float = 0.0
 # Per-update scratch buffers (no allocations in the hot loop).
@@ -83,6 +86,9 @@ class _St:
 	var elder_age: float = 3.0
 	var kills := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 	var meat_gain: float = 0.0       # W per capita from predation
+	var max_energy_pc: float = 1.0   # J reserve per capita (class-mass weighted)
+	var demand_pc: float = 0.0       # W per capita (last step)
+	var meat_share: float = 0.0      # share of meat in the diet weights
 
 
 func _init(grid: EcoGrid = null, climate_state: ClimateState = null) -> void:
@@ -139,6 +145,9 @@ func _aggregate(st: _St, pool: SpeciesPool, sec: PopSector) -> void:
 	st.juvenile_s = 0.0
 	st.maturity = 0.0
 	st.elder_age = 0.0
+	st.max_energy_pc = 0.0
+	st.demand_pc = 0.0
+	st.meat_share = 0.0
 	for s in pool.samples:
 		var w := s.weight
 		e += s.energy * w
@@ -161,12 +170,19 @@ func _aggregate(st: _St, pool: SpeciesPool, sec: PopSector) -> void:
 		st.elder_age += s.pp.elder_age * w
 		if s.meat_eater:
 			st.pred_w += w
+		st.max_energy_pc += s.max_energy * w
+		st.demand_pc += (s.last_demand if s.last_demand > 0.0 else s.pp.maintenance_rate(s.pp.body_temp_set)) * w
+		var fw := 0.0
+		for f in Food.COUNT:
+			fw += s.food_w[f]
+		st.meat_share += s.food_w[Food.MEAT] / maxf(fw, 1e-6) * w
 	st.e_mean = e
 	st.effort = effort(e)
 	var c := pool.classes
 	st.m75 = c[0] * pow(st.mf_juv, 0.75) + c[1] * pow(st.mf_ado, 0.75) + c[2] + c[3]
 	st.m1 = c[0] * st.mf_juv + c[1] * st.mf_ado + c[2] + c[3]
 	st.m23 = c[0] * pow(st.mf_juv, 2.0 / 3.0) + c[1] * pow(st.mf_ado, 2.0 / 3.0) + c[2] + c[3]
+	st.max_energy_pc *= st.m1
 	st.habitat = clampf(sec.land_frac * st.land_ok + sec.water_frac * st.water_ok, 0.0, 1.0)
 
 
@@ -193,8 +209,10 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 	if _x.size() < slots:
 		_x.resize(slots)
 		_hd.resize(slots)
+		_kill.resize(slots)
 		_eat.resize(slots)
 	_x.fill(0.0)
+	_kill.fill(0.0)
 	var denom := 1.0
 	for qi in n:
 		if qi == pi:
@@ -205,10 +223,13 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 			continue
 		var a := P.speed * 0.6 * P.detection * HUNT_SEARCH * overlap / maxf(P.habitat, 0.05)
 		var area_q := sec.area * maxf(Q.habitat, 0.05)
+		var dens_q := Q.pool.count / area_q
 		for c in 4:
 			var nc := Q.pool.count * Q.pool.classes[c]
 			if nc < 1e-4:
 				continue
+			# Prey refuge: at low density most prey hide (cover, burrows, herds).
+			nc *= dens_q / (dens_q + REFUGE_DENSITY)
 			var mf := Q.mf_juv if c == 0 else (Q.mf_ado if c == 1 else 1.0)
 			var old := 0.8 if c == 3 else 1.0
 			var m_c := Q.mass * mf
@@ -220,6 +241,8 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 			_hd[k] = _eat[k] / maxf(P.intake_meat, 1e-9) + CHASE_TIME
 			denom += _x[k] * _hd[k]
 	var hunters := np * P.effort * P.pred_w
+	# Pass 1: kills at the unconstrained rate and the energy they would bring.
+	var gain_j := 0.0
 	for qi in n:
 		if qi == pi:
 			continue
@@ -229,6 +252,20 @@ func _predation(sec: PopSector, pi: int, n: int, dt: float) -> void:
 			if _x[k] <= 0.0:
 				continue
 			var kills := minf(_x[k] / denom * hunters * dt, 0.5 * Q.pool.count * Q.pool.classes[c] - Q.kills[c])
+			_kill[k] = maxf(kills, 0.0)
+			gain_j += _kill[k] * _eat[k] * float(Food.ENERGY[Food.MEAT]) * P.eff_meat
+	# Satiation: a predator hunts only for what it can still store plus what
+	# it burns meanwhile — no hunting far beyond its needs.
+	var appetite := np * (maxf(1.0 - P.e_mean, 0.0) * P.max_energy_pc + P.demand_pc * dt) * P.meat_share
+	var scale := minf(1.0, appetite / gain_j) if gain_j > 0.0 else 0.0
+	# Pass 2: apply.
+	for qi in n:
+		if qi == pi:
+			continue
+		var Q := _st[qi]
+		for c in 4:
+			var k := qi * 4 + c
+			var kills := _kill[k] * scale
 			if kills <= 0.0:
 				continue
 			Q.kills[c] += kills
