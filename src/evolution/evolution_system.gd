@@ -165,7 +165,9 @@ func _speciate(parent: SpeciesDef, deme: Dictionary, centroid: Genome, dist: flo
 		labels.append(str(e["label"]))
 	add_log(day, &"speciation", "Новый вид «%s» произошёл от «%s» (отличия: %s)." % [nd.name, parent.name, ", ".join(labels)],
 		{"species": nd.id, "parent": parent.id, "distance": dist})
-	EventBus.speciation.emit(parent, nd)
+	var b := SpeciesRegistry.bus()
+	if b != null:
+		b.emit_signal(&"speciation", parent, nd)
 	return nd
 
 
@@ -194,7 +196,9 @@ func add_log(day: float, category: StringName, text: String, data: Dictionary = 
 	log_entries.append(e)
 	while log_entries.size() > MAX_LOG:
 		log_entries.pop_front()
-	EventBus.sim_event_logged.emit(e)
+	var b := SpeciesRegistry.bus()
+	if b != null:
+		b.emit_signal(&"sim_event_logged", e)
 
 
 # --- Phylogeny & comparison ----------------------------------------------------------

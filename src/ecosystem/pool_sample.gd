@@ -14,6 +14,15 @@ var weight: float = 1.0
 var energy: float = 0.7
 var fecundity: float = 0.0          # last conceptions per capita per s (parent choice)
 var fitness: float = 0.0            # last per-capita growth rate (diagnostic)
+# Last-step breakdown (W per capita, mortality per s) — diagnostics / UI.
+var last_income: float = 0.0
+var last_demand: float = 0.0
+var mu_starve: float = 0.0
+var mu_thermal: float = 0.0
+var mu_habitat: float = 0.0
+var mu_water: float = 0.0
+var mu_disease: float = 0.0
+var mu_predation: float = 0.0
 
 # --- Cached constants (adult values) ------------------------------------------------
 var mass: float = 1.0
@@ -28,6 +37,10 @@ var food_w := PackedFloat32Array()  # preference weight per Food kind
 var intake := PackedFloat32Array()  # sustainable intake limit per Food kind (kg/s)
 var eff := PackedFloat32Array()     # assimilation efficiency per Food kind
 var plant_prefs := PackedFloat32Array()
+var mouth_rate: float = 1e-4        # handling-limited intake while feeding (kg/s)
+var gut_kg: float = 0.1             # gut capacity (kg)
+var retention := PackedFloat32Array()  # gut retention per Food kind (s)
+var burrower := false               # lives in moist soil (humid microhabitat)
 var attack: float = 0.0
 var defense: float = 0.0
 var detection: float = 10.0
@@ -79,6 +92,10 @@ func clone() -> PoolSample:
 	s.intake = intake
 	s.eff = eff
 	s.plant_prefs = plant_prefs
+	s.mouth_rate = mouth_rate
+	s.gut_kg = gut_kg
+	s.retention = retention
+	s.burrower = burrower
 	return s
 
 
@@ -105,11 +122,17 @@ func _cache(plants: Array[PlantSpecies]) -> void:
 	DietModel.food_weights(pp, food_w)
 	intake = PackedFloat32Array()
 	eff = PackedFloat32Array()
+	retention = PackedFloat32Array()
 	intake.resize(Food.COUNT)
 	eff.resize(Food.COUNT)
+	retention.resize(Food.COUNT)
 	for k in Food.COUNT:
 		intake[k] = pp.intake_limit(k)
 		eff[k] = pp.food_efficiency(k)
+		retention[k] = pp.retention_time(k)
+	mouth_rate = pp.max_intake_kg_s
+	gut_kg = pp.gut_capacity_kg
+	burrower = lp.can_burrow
 	meat_eater = food_w[Food.MEAT] > 0.15 and pp.weapon_score > 0.3
 	_plant_prefs(plants, st, lp)
 	# Combat: weapons (already size-scaled) and bulk.

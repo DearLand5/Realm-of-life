@@ -29,6 +29,7 @@ const CHASE_TIME := 1800.0
 const NEWBORN_ENERGY := Reproduction.OFFSPRING_START_ENERGY
 const MAX_HARVEST := 0.5                  # of the available food per sub-step
 const MIN_COUNT := 0.02
+const MATE_SEARCH_S := 3.0 * 86400.0
 
 var eco: EcoGrid
 var climate: ClimateState
@@ -40,7 +41,18 @@ var _x := PackedFloat32Array()     # predation scratch: attack rate × density �
 var _hd := PackedFloat32Array()    # handling time
 var _eat := PackedFloat32Array()   # kg eaten per kill
 var _carcass_kg: float = 0.0
-var _carcass_species: int = -1
+# Per-update scratch buffers (no allocations in the hot loop).
+var _wants := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _dens := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _avail := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _desired := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _ratio := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _epk := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _intake := PackedFloat32Array()
+var _land_share := PackedFloat32Array()
+var _surv := PackedFloat32Array()
+var _rec := PackedFloat32Array()
+var _n_new := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 
 
 class _St:
@@ -150,12 +162,17 @@ func _aggregate(st: _St, pool: SpeciesPool, sec: PopSector) -> void:
 		if s.meat_eater:
 			st.pred_w += w
 	st.e_mean = e
-	st.effort = clampf((1.05 - e) * 1.6, 0.15, 1.0)
+	st.effort = effort(e)
 	var c := pool.classes
 	st.m75 = c[0] * pow(st.mf_juv, 0.75) + c[1] * pow(st.mf_ado, 0.75) + c[2] + c[3]
 	st.m1 = c[0] * st.mf_juv + c[1] * st.mf_ado + c[2] + c[3]
 	st.m23 = c[0] * pow(st.mf_juv, 2.0 / 3.0) + c[1] * pow(st.mf_ado, 2.0 / 3.0) + c[2] + c[3]
 	st.habitat = clampf(sec.land_frac * st.land_ok + sec.water_frac * st.water_ok, 0.0, 1.0)
+
+
+## Foraging/hunting effort from hunger: sated animals rest (satiation).
+static func effort(energy_fraction: float) -> float:
+	return clampf((1.0 - energy_fraction) * 3.0, 0.05, 1.0)
 
 
 static func success(att: float, def: float, v_pred: float, v_prey: float, vig: float, m_pred: float, m_prey: float, soc: float) -> float:
@@ -233,59 +250,68 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 	if _prefs.size() != np:
 		_prefs.resize(np)
 	_prefs.fill(0.0)
-	var wants := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+	_wants.fill(0.0)
+	_avail.fill(0.0)
+	_desired.fill(0.0)
+	_ratio.fill(0.0)
+	_epk.fill(0.0)
 	for s in pool.samples:
 		for k in np:
 			_prefs[k] += s.plant_prefs[k] * s.weight
 		for f in Food.COUNT:
-			wants[f] += s.food_w[f] * s.weight
-	var dens := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
-	var avail := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
-	if wants[Food.PLANT] > 0.01:
-		avail[Food.PLANT] = eco.plant_available(sec.cells, _prefs)
-	if wants[Food.DETRITUS] > 0.01:
-		avail[Food.DETRITUS] = eco.detritus_available(sec.cells)
-	if wants[Food.PLANKTON] > 0.01 and not sec.water_cells.is_empty():
-		avail[Food.PLANKTON] = eco.plankton_available(sec.water_cells)
-	if wants[Food.CARRION] > 0.01:
-		avail[Food.CARRION] = eco.carcass_available(sec.x0, sec.z0, sec.x1, sec.z1)
+			_wants[f] += s.food_w[f] * s.weight
+	if _wants[Food.PLANT] > 0.01:
+		_avail[Food.PLANT] = eco.plant_available(sec.cells, _prefs)
+	if _wants[Food.DETRITUS] > 0.01:
+		_avail[Food.DETRITUS] = eco.detritus_available(sec.cells)
+	if _wants[Food.PLANKTON] > 0.01 and not sec.water_cells.is_empty():
+		_avail[Food.PLANKTON] = eco.plankton_available(sec.water_cells)
+	if _wants[Food.CARRION] > 0.01:
+		_avail[Food.CARRION] = eco.carcass_available(sec.x0, sec.z0, sec.x1, sec.z1)
 	for f in Food.COUNT:
-		dens[f] = avail[f] / land_area
+		_dens[f] = _avail[f] / land_area
 	if sec.water_frac > 0.0:
-		dens[Food.PLANKTON] = avail[Food.PLANKTON] / maxf(sec.area * sec.water_frac, 1.0)
-	# --- Per-sample intake (type II) → desired harvest --------------------------
+		_dens[Food.PLANKTON] = _avail[Food.PLANKTON] / maxf(sec.area * sec.water_frac, 1.0)
+	# --- Per-sample intake → desired harvest ---------------------------------------
+	# Type II during foraging time (search rate, mouth handling), capped over
+	# the day by the gut volume: Σ intake × retention ≤ gut capacity.
 	var ns := pool.samples.size()
-	var intake := PackedFloat32Array()
-	intake.resize(ns * Food.COUNT)
-	var desired := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
-	var land_share := PackedFloat32Array()
-	land_share.resize(ns)
+	if _intake.size() < ns * Food.COUNT:
+		_intake.resize(ns * Food.COUNT)
+		_land_share.resize(ns)
+		_surv.resize(ns)
+		_rec.resize(ns)
 	for i in ns:
 		var s := pool.samples[i]
 		var hl := sec.land_frac * s.land_ok
 		var hw := sec.water_frac * s.water_ok
-		land_share[i] = hl / (hl + hw) if hl + hw > 1e-6 else 1.0
+		var ls := hl / (hl + hw) if hl + hw > 1e-6 else 1.0
+		_land_share[i] = ls
 		var th_l := s.thermal(sec.t_air, false, sec.light)
 		var th_w := s.thermal(sec.t_water, true, sec.light)
-		var perf := lerpf(th_w.performance, th_l.performance, land_share[i])
-		var a := s.search_rate * perf
+		var a := s.search_rate * lerpf(th_w.performance, th_l.performance, ls)
 		var den := 1.0
+		var base := i * Food.COUNT
 		for f in Food.COUNT:
-			var x := a * s.food_w[f] * dens[f] * (1.0 - land_share[i] if f == Food.PLANKTON else 1.0)
-			intake[i * Food.COUNT + f] = x
-			den += x / maxf(s.intake[f], 1e-12)
-		var eff_i := clampf((1.05 - s.energy) * 1.6, 0.15, 1.0) * FORAGE_TIME * st.m75
+			var x := a * s.food_w[f] * _dens[f] * ((1.0 - ls) if f == Food.PLANKTON else 1.0)
+			_intake[base + f] = x
+			den += x / maxf(s.mouth_rate, 1e-12)
+		var k_f := effort(s.energy) * FORAGE_TIME / den
+		var load := 0.0
 		for f in Food.COUNT:
-			var v := intake[i * Food.COUNT + f] / den * eff_i
-			intake[i * Food.COUNT + f] = v
-			desired[f] += v * n0 * s.weight * dt
+			var v := _intake[base + f] * k_f
+			_intake[base + f] = v
+			load += v * s.retention[f]
+		var cap := 1.0 if load <= s.gut_kg else s.gut_kg / load
+		for f in Food.COUNT:
+			var v := _intake[base + f] * cap * st.m75
+			_intake[base + f] = v
+			_desired[f] += v * n0 * s.weight * dt
 	# --- Harvest from the EcoGrid --------------------------------------------------
-	var ratio := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
-	var epk := PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
 	for f in Food.COUNT:
-		if desired[f] <= 0.0 or avail[f] <= 0.0:
+		if _desired[f] <= 0.0 or _avail[f] <= 0.0:
 			continue
-		var want := minf(desired[f], avail[f] * MAX_HARVEST)
+		var want := minf(_desired[f], _avail[f] * MAX_HARVEST)
 		match f:
 			Food.PLANT:
 				eco.harvest_plants(sec.cells, want, _prefs, _h)
@@ -297,8 +323,8 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 				eco.harvest_carcass(sec.x0, sec.z0, sec.x1, sec.z1, want, _h)
 			_:
 				_h.clear()
-		ratio[f] = _h.kg / desired[f]
-		epk[f] = _h.energy / maxf(_h.kg, 1e-9) * (1.0 - 0.5 * _h.toxicity)
+		_ratio[f] = _h.kg / _desired[f]
+		_epk[f] = _h.energy / maxf(_h.kg, 1e-9) * (1.0 - 0.5 * _h.toxicity)
 	# --- Energetics, mortality and births per sample ------------------------------
 	var c := pool.classes
 	var adults := n0 * (c[2] + c[3])
@@ -315,27 +341,23 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 	var killed := st.kills[0] + st.kills[1] + st.kills[2] + st.kills[3]
 	var pred_rate := killed / (n0 * dt)
 	var density := n0 / land_area * 100.0
-	var surv := PackedFloat32Array()
-	surv.resize(ns)
-	var rec := PackedFloat32Array()
-	rec.resize(ns)
 	for i in ns:
 		var s := pool.samples[i]
 		var pp := s.pp
-		var ls := land_share[i]
+		var ls := _land_share[i]
 		var th_l := s.thermal(sec.t_air, false, sec.light)
 		var th_w := s.thermal(sec.t_water, true, sec.light)
 		var t_b := lerpf(th_w.body_temp, th_l.body_temp, ls)
 		var perf := lerpf(th_w.performance, th_l.performance, ls)
 		var heat := lerpf(th_w.heat_stress, th_l.heat_stress, ls)
 		var cold := lerpf(th_w.cold_stress, th_l.cold_stress, ls)
-		var effort := clampf((1.05 - s.energy) * 1.6, 0.15, 1.0)
+		var eff_now := effort(s.energy)
 		# Income.
 		var income := pp.autotrophic_power(sec.light * lerpf(0.7, 1.0, ls)) * st.m23
 		var water_in := 0.0
 		for f in Food.COUNT:
-			var kg_s := intake[i * Food.COUNT + f] * ratio[f]
-			income += kg_s * epk[f] * s.eff[f]
+			var kg_s := _intake[i * Food.COUNT + f] * _ratio[f]
+			income += kg_s * _epk[f] * s.eff[f]
 			water_in += kg_s * float(Food.WATER[f])
 		if s.meat_eater and st.pred_w > 0.0:
 			var rel := (s.attack + 0.1) / (mean_atk + 0.1) * sqrt(s.speed / maxf(st.speed, 0.01))
@@ -343,46 +365,50 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 		# Demand.
 		var gc := smoothstep(0.2, 0.5, s.energy)
 		var demand := pp.maintenance_rate(t_b) * st.m75 \
-			+ pp.activity_power(BASE_ACTIVITY + FORAGE_ACTIVITY * effort, t_b) * st.m75 * perf \
+			+ pp.activity_power(BASE_ACTIVITY + FORAGE_ACTIVITY * eff_now, t_b) * st.m75 * perf \
 			+ lerpf(th_w.extra_w, th_l.extra_w, ls) * st.m23 \
 			+ s.growth_power * growing * gc
 		# Births (paid from the reserve).
 		var season := Reproduction.season_factor(pp, climate)
-		var mate := adults / (adults + 0.5) if s.needs_mate else 1.0
+		# Mate finding: adults met while searching for ~3 days (Allee effect at low density).
+		var mate := 1.0 - exp(-adults / land_area * s.search_rate * MATE_SEARCH_S) if s.needs_mate else 1.0
 		var b := (c[2] + 0.5 * c[3]) * s.female_share * s.breed_rate * smoothstep(0.35, 0.7, s.energy) * season * mate
 		s.fecundity = b
 		var e_pc := s.max_energy * e_pc_scale
 		s.energy = clampf(s.energy + ((income - demand) * dt - b * dt * s.offspring_cost) / maxf(e_pc, 1e-9), 0.0, 1.0)
 		# Mortality.
-		var mu := BG_MORTALITY + BiologySystem.STARVE_DAMAGE * (1.0 - smoothstep(0.0, 0.12, s.energy))
-		mu += heat * heat * BiologySystem.HEAT_DAMAGE + cold * cold * BiologySystem.COLD_DAMAGE
+		s.last_income = income
+		s.last_demand = demand
+		s.mu_starve = BiologySystem.STARVE_DAMAGE * (1.0 - smoothstep(0.0, 0.12, s.energy))
+		s.mu_thermal = heat * heat * BiologySystem.HEAT_DAMAGE + cold * cold * BiologySystem.COLD_DAMAGE
 		var h_i := s.habitat(sec.land_frac, sec.water_frac)
-		if h_i < 0.3:
-			mu += HABITAT_MORTALITY * (0.3 - h_i) / 0.3
+		s.mu_habitat = HABITAT_MORTALITY * (0.3 - h_i) / 0.3 if h_i < 0.3 else 0.0
+		s.mu_water = 0.0
 		if not sec.fresh_water and ls > 0.5 and not pp.aquatic:
-			var loss := (pp.water_loss_rate(sec.t_air, sec.humidity, false, demand) + th_l.cooling_water) * st.m23 * ls
+			var hum := maxf(sec.humidity, 0.9) if s.burrower else sec.humidity
+			var loss := (pp.water_loss_rate(sec.t_air, hum, false, demand) + th_l.cooling_water) * st.m23 * ls
 			var deficit := loss - water_in
 			if deficit > 0.0:
-				mu += deficit / maxf(0.3 * pp.body_water_kg * st.m1, 1e-9)
-		mu += DISEASE_POOL * density * (1.0 - 0.7 * pp.immune) * (0.5 + sec.humidity)
+				s.mu_water = deficit / maxf(0.3 * pp.body_water_kg * st.m1, 1e-9)
+		s.mu_disease = DISEASE_POOL * density * (1.0 - 0.7 * pp.immune) * (0.5 + sec.humidity)
+		s.mu_predation = 0.0
 		if killed > 0.0 and v_sum > 0.0:
 			var v := (mean_def / maxf(s.defense, 0.05)) * sqrt(st.speed / maxf(s.speed, 0.01)) * (1.2 - s.vigilance) / vig_m
-			mu += pred_rate * v / v_sum
+			s.mu_predation = pred_rate * v / v_sum
+		var mu := BG_MORTALITY + s.mu_starve + s.mu_thermal + s.mu_habitat + s.mu_water + s.mu_disease + s.mu_predation
 		var sv := exp(-mu * dt)
-		surv[i] = sv
+		_surv[i] = sv
 		surv_sum += s.weight * sv
-		rec[i] = n0 * s.weight * b * dt * s.recruit_survival
-		recruits += rec[i]
+		_rec[i] = n0 * s.weight * b * dt * s.recruit_survival
+		recruits += _rec[i]
 		s.fitness = b * s.recruit_survival - mu
 	# --- Classes & weights ------------------------------------------------------------
-	var n_old := PackedFloat32Array([n0 * c[0], n0 * c[1], n0 * c[2], n0 * c[3]])
 	# Predation removes from classes directly; other mortality is uniform across classes.
 	var pred_surv := 1.0 - minf(killed / n0, 0.95)
 	var other_surv := clampf(surv_sum / maxf(pred_surv, 1e-6), 0.0, 1.0)
-	var n_new := PackedFloat32Array()
-	n_new.resize(4)
+	var n_new := _n_new
 	for k in 4:
-		n_new[k] = maxf(0.0, n_old[k] - st.kills[k]) * other_surv
+		n_new[k] = maxf(0.0, n0 * c[k] - st.kills[k]) * other_surv
 	var e_mean := pool.mean_energy()
 	var gcm := smoothstep(0.2, 0.5, e_mean)
 	n_new[0] *= exp(-pool.samples[0].juv_mortality * dt)
@@ -405,10 +431,10 @@ func _update(sec: PopSector, st: _St, dt: float) -> void:
 		pool.classes = c
 	for i in ns:
 		var s := pool.samples[i]
-		var kept := n0 * s.weight * surv[i]
-		var tot := kept + rec[i]
+		var kept := n0 * s.weight * _surv[i]
+		var tot := kept + _rec[i]
 		if tot > 0.0:
-			s.energy = (s.energy * kept + NEWBORN_ENERGY * rec[i]) / tot
+			s.energy = (s.energy * kept + NEWBORN_ENERGY * _rec[i]) / tot
 		s.weight = tot
 	pool.normalize_weights()
 	pool.births_since_resample += recruits

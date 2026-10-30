@@ -69,7 +69,7 @@ func _initialize() -> void:
 			pop.step(dt)
 		evo.daily(float(day + 1))
 	print("— %.1f s real time, %d log entries" % [(Time.get_ticks_msec() - t0) / 1000.0, evo.log_entries.size()])
-	for e in evo.log.slice(maxi(0, evo.log_entries.size() - 12)):
+	for e in evo.log_entries.slice(maxi(0, evo.log_entries.size() - 12)):
 		print("  [day %d] %s" % [int(e["day"]), e["text"]])
 	quit(0)
 

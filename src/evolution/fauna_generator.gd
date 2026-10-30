@@ -189,7 +189,7 @@ static func _variant(spec: Dictionary, info: Dictionary, rng: Rng, mutations: in
 
 
 static func _adapt_climate(g: Genome, spec: Dictionary, info: Dictionary, rng: Rng) -> void:
-	var water := spec["medium"] == &"water"
+	var water: bool = spec["medium"] == &"water"
 	var t: float = info["t_water"] if water else info["t_land"]
 	g.set_value(&"thermal_optimum", clampf(t + rng.range_f(-2.0, 2.0), -10.0, 40.0))
 	g.set_value(&"thermal_tolerance", clampf(6.0 + float(info["t_range"]) * 0.5 + rng.range_f(-1.0, 1.0), 4.0, 25.0))

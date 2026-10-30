@@ -42,7 +42,9 @@ func register(def: SpeciesDef, day: float = 0.0) -> int:
 	if def.created_day <= 0.0:
 		def.created_day = day
 	species[def.id] = def
-	EventBus.species_registered.emit(def)
+	var b := bus()
+	if b != null:
+		b.emit_signal(&"species_registered", def)
 	return def.id
 
 
@@ -82,7 +84,9 @@ func mark_extinct(id: int, day: float) -> bool:
 		return false
 	d.extinct = true
 	d.extinct_day = day
-	EventBus.species_extinct.emit(d)
+	var b := bus()
+	if b != null:
+		b.emit_signal(&"species_extinct", d)
 	return true
 
 
@@ -139,3 +143,12 @@ func from_dict(d: Dictionary) -> void:
 			var s := SpeciesDef.from_dict(sd)
 			species[s.id] = s
 			next_id = maxi(next_id, s.id + 1)
+
+
+## The EventBus autoload, resolved at runtime (also works in headless
+## tools/tests where autoload identifiers are not compile-time globals).
+static func bus() -> Node:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null(^"EventBus")

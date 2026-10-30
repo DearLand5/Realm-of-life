@@ -49,7 +49,7 @@ static func generate(niche: StringName, g: Genome, rng: Rng) -> Dictionary:
 	var high: bool = pick[1]
 	var adj: String = w[0] if high else w[2]
 	var epithet: String = w[1] if high else w[3]
-	var genus := str(LATIN_GENUS.get(niche, "Vivens")) + GENUS_ENDINGS[rng.range_i(0, GENUS_ENDINGS.size() - 1)]
+	var genus: String = str(LATIN_GENUS.get(niche, "Vivens")) + str(GENUS_ENDINGS[rng.range_i(0, GENUS_ENDINGS.size() - 1)])
 	return {"ru": "%s %s" % [_agree(adj, noun), noun], "latin": "%s %s" % [genus, epithet]}
 
 
@@ -62,7 +62,7 @@ static func derive(parent: SpeciesDef, rng: Rng) -> Dictionary:
 	var latin := parent.latin_name
 	if latin == "":
 		latin = "Vivens novus"
-	var genus := latin.split(" ")[0]
+	var genus: String = latin.split(" ")[0]
 	return {"ru": "%s %s" % [base, SUFFIXES[k]], "latin": "%s %s" % [genus, LATIN_SUFFIXES[k]]}
 
 
