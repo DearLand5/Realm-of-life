@@ -239,3 +239,34 @@ static func snap(params: Dictionary, parent: BodyPart, angle_step: float = 15.0,
 		out["t"] = clampf(t, T_EDGE, 1.0 - T_EDGE)
 	out["depth"] = snappedf(float(out["depth"]), 0.05)
 	return out
+
+
+## Orientation (pitch, yaw in degrees) that makes the part's outward axis
+## point along geometry-space direction `dir`, for instance `inst_idx`.
+## Inverse of the compiler's `_rot` applied to the attach frame (roll keeps Y).
+static func orientation_for_direction(m: AnatomyModel, plan: BodyPlan, inst_idx: int, dir: Vector3) -> Dictionary:
+	if inst_idx < 0 or inst_idx >= m.instances.size() or dir.length_squared() < 1e-10:
+		return {"ok": false}
+	var inst := m.instances[inst_idx]
+	var tf := instance_frame(m, plan, inst_idx)
+	var d := dir.normalized()
+	var b := tf.basis
+	if inst.mirrored:
+		d = MathUtil.mirror_point_x(d)
+		b = MathUtil.mirror_basis_x(b)
+	var local := b.orthonormalized().inverse() * d
+	var yaw := asin(clampf(-local.x, -1.0, 1.0))
+	var pitch := atan2(local.z, local.y)
+	return {"ok": true, "pitch": rad_to_deg(pitch), "yaw": rad_to_deg(yaw)}
+
+
+## Outward axis of a part instance in geometry space (first bone / accessory).
+static func instance_direction(m: AnatomyModel, inst_idx: int) -> Vector3:
+	if inst_idx < 0 or inst_idx >= m.instances.size():
+		return Vector3.UP
+	var inst := m.instances[inst_idx]
+	if not inst.bones.is_empty():
+		return m.bones[inst.bones[0]].basis.y
+	if not inst.accessories.is_empty():
+		return m.accessories[inst.accessories[0]].transform.basis.y
+	return Vector3.UP

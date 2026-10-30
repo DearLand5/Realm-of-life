@@ -13,7 +13,7 @@ const SKIP_ACCESSORIES: Array[StringName] = [&"organ", &"foot", &"cell_organelle
 
 
 ## Returns {hit: bool, part_id, instance, position, normal, t}.
-static func pick(m: AnatomyModel, origin: Vector3, dir: Vector3, slop: float = 0.0, include_organs: bool = false) -> Dictionary:
+static func pick(m: AnatomyModel, origin: Vector3, dir: Vector3, slop: float = 0.0, include_organs: bool = false, prefer_organs: bool = false) -> Dictionary:
 	var d := dir.normalized()
 	var best := {"hit": false, "t": INF}
 	if not m.primitives.is_empty():
@@ -23,6 +23,7 @@ static func pick(m: AnatomyModel, origin: Vector3, dir: Vector3, slop: float = 0
 			best = {"hit": true, "part_id": bone.part_id, "instance": bone.instance,
 				"position": r["position"], "normal": r["normal"], "t": float(r["t"]), "body": true}
 	var bias := slop * 1.5
+	var organ_hit := {"hit": false, "t": INF}
 	# Point parts.
 	for a in m.accessories:
 		if SKIP_ACCESSORIES.has(a.type) and not (include_organs and a.type == &"organ"):
@@ -32,6 +33,9 @@ static func pick(m: AnatomyModel, origin: Vector3, dir: Vector3, slop: float = 0
 		if a.type in [&"horn", &"spike", &"claw", &"whisker"]:
 			c = a.transform.origin + a.transform.basis.y.normalized() * a.size * 0.35
 		var th := _ray_sphere(origin, d, c, rad)
+		if a.type == &"organ" and th >= 0.0 and th < float(organ_hit["t"]):
+			organ_hit = {"hit": true, "part_id": a.part_id, "instance": a.instance, "position": origin + d * th,
+				"normal": (origin + d * th - c).normalized(), "t": th, "body": false}
 		if th >= 0.0 and th < float(best["t"]) + bias:
 			best = {"hit": true, "part_id": a.part_id, "instance": a.instance, "position": origin + d * th,
 				"normal": (origin + d * th - c).normalized(), "t": th, "body": false}
@@ -51,6 +55,8 @@ static func pick(m: AnatomyModel, origin: Vector3, dir: Vector3, slop: float = 0
 		if th2 >= 0.0 and th2 < float(best["t"]) + allowance:
 			best = {"hit": true, "part_id": b.part_id, "instance": b.instance, "position": origin + d * th2,
 				"normal": -d, "t": th2, "body": false}
+	if prefer_organs and organ_hit["hit"]:
+		return organ_hit
 	return best
 
 

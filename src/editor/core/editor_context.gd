@@ -13,12 +13,14 @@ signal view_changed
 signal action_requested(action: StringName, args: Dictionary)
 signal tutorial_event(id: StringName)
 signal toast(text: String, level: StringName)
+## Ask the stage to frame a part.
+signal stage_focus(part_id: int)
 
 ## id, icon, label, tooltip — order = tab order.
 const MODES: Array[Dictionary] = [
 	{"id": &"shape", "icon": &"scale", "label": "Форма", "tip": "Туловище, шея, голова, хвост, панцирь"},
 	{"id": &"anatomy", "icon": &"skull", "label": "Скелет", "tip": "Суставы, мышцы, внутренние органы"},
-	{"id": &"limbs", "icon": &"paw", "label": "Конечности", "tip": "Ноги, плавники, крылья, щупальца"},
+	{"id": &"limbs", "icon": &"paw", "label": "Конечности", "short": "Лапы", "tip": "Ноги, плавники, крылья, щупальца"},
 	{"id": &"covering", "icon": &"layers", "label": "Покровы", "tip": "Кожа, чешуя, шерсть, перья, окраска"},
 	{"id": &"senses", "icon": &"eye", "label": "Чувства", "tip": "Глаза, уши, нос, усики, сенсоры"},
 	{"id": &"organs", "icon": &"claw", "label": "Органы", "tip": "Рты, рога, шипы, когти, жабры, железы"},
@@ -38,6 +40,11 @@ var xray: bool = false
 var snapping: bool = true
 var show_fov: bool = true
 var show_handles: bool = true
+## Show the explanation under every slider.
+var hints: bool = false
+## Compiled instance (index in AnatomyModel.instances) the user last touched
+## for the selected part: handles and drags act on that copy (-1 = first).
+var selected_instance: int = -1
 ## Part highlighted by a diagnostics row (-1 = none).
 var hint_part: int = -1
 
@@ -109,3 +116,11 @@ static func part_name(p: BodyPart) -> String:
 	if p == null:
 		return "—"
 	return p.label if p.label != "" else PartSchema.label(p.kind)
+
+
+## Ids of the current selection (plain Array for closures).
+func actions_selected() -> Array:
+	var out: Array = []
+	for id in doc.selection:
+		out.append(id)
+	return out
