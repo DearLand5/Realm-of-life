@@ -27,5 +27,5 @@ void fragment() {
 	ROUGHNESS = 0.15;
 	SPECULAR = 0.7;
 	EMISSION = v_col.rgb * v_int * (0.6 + 2.2 * core) * pulse * (1.0 - fatigue * 0.6)
-		+ vec3(1.0, 0.72, 0.25) * (0.12 + 0.9 * pow(1.0 - ndv, 2.5)) * v_hl;
+		+ cv_highlight_emission(ndv, v_hl);
 }

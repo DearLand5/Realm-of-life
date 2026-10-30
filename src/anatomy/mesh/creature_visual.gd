@@ -144,7 +144,7 @@ func _update_materials() -> void:
 			mi.material_override = CreatureMaterials.material(kind)
 			mi.visible = _xray
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		elif _xray and kind != CreatureBuildContext.KIND_EYE:
+		elif _xray:
 			mi.material_override = CreatureMaterials.material(&"xray")
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		else:

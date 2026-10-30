@@ -21,6 +21,6 @@ void fragment() {
 	SPECULAR = 0.6;
 	RIM = 0.5;
 	RIM_TINT = 0.5;
-	EMISSION = v_col.rgb * (0.25 + 0.35 * pow(1.0 - ndv, 2.0)) + vec3(1.0, 0.85, 0.4) * pow(1.0 - ndv, 2.0) * v_hl;
+	EMISSION = v_col.rgb * (0.25 + 0.35 * pow(1.0 - ndv, 2.0)) + cv_highlight_emission(ndv, v_hl);
 	ALPHA = 0.9;
 }

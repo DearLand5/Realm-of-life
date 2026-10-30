@@ -32,7 +32,8 @@ func _initialize() -> void:
 			await _pose(_arg(args, 1, "res://screenshots/tmp/creatures_pose.png"), int(_arg(args, 2, "0")))
 		"single":
 			var id := StringName(_arg(args, 1, "grazer"))
-			var img := await _render_single(id, int(_arg(args, 3, "0")), float(_arg(args, 4, "145")), TILE * 2, _arg(args, 5, "") == "xray")
+			var opt := _arg(args, 5, "")
+			var img := await _render_single(id, int(_arg(args, 3, "0")), float(_arg(args, 4, "145")), TILE * 2, opt == "xray", false, opt.trim_prefix("hl:") if opt.begins_with("hl:") else "")
 			_save(img, _arg(args, 2, "res://screenshots/tmp/creature_%s.png" % id))
 		"gallery":
 			await _gallery(_arg(args, 1, "res://screenshots/tmp/creatures_gallery.png"), int(_arg(args, 2, "0")),
@@ -121,13 +122,18 @@ func _pose(out: String, lod: int) -> void:
 
 
 ## Renders one creature framed in a viewport of `size`.
-func _render_single(id: StringName, lod: int, yaw: float, size: Vector2i, xray: bool, posed: bool = false) -> Image:
+func _render_single(id: StringName, lod: int, yaw: float, size: Vector2i, xray: bool, posed: bool = false, highlight_kind: String = "") -> Image:
 	get_root().size = size
 	var v := _make_creature(id, 4242, lod)
 	_stage.add_child(v)
 	v.rotation_degrees.y = yaw
 	if xray:
 		v.set_xray(true)
+	if highlight_kind != "":
+		# Editor selection preview: highlight every part of a kind (e.g. hl:head).
+		for inst in v.model.instances:
+			if str(inst.kind) == highlight_kind:
+				v.set_highlight(inst.part_id, true)
 	if posed:
 		_apply_test_pose(v)
 	var bb := v.model.aabb

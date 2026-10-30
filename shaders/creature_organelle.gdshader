@@ -26,5 +26,5 @@ void fragment() {
 	RIM = 0.4;
 	RIM_TINT = 0.8;
 	BACKLIGHT = col * 0.6;
-	EMISSION = col * 0.12 + vec3(1.0, 0.72, 0.25) * (0.12 + 0.9 * pow(1.0 - ndv, 2.5)) * v_hl;
+	EMISSION = col * 0.12 + cv_highlight_emission(ndv, v_hl);
 }

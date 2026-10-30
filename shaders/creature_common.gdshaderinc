@@ -173,6 +173,11 @@ void cv_top_slots(vec4 w, out int i0, out int i1, out float w0, out float w1) {
 	w1 /= s;
 }
 
+// Editor selection: cyan fresnel rim plus a faint fill (reads on any coat colour).
+vec3 cv_highlight_emission(float ndv, float hl) {
+	return vec3(0.25, 0.78, 1.0) * (0.16 + 1.25 * pow(1.0 - ndv, 2.2)) * hl;
+}
+
 float cv_highlight_of(float part) {
 	vec4 d = abs(cv_highlight - vec4(part));
 	float m = min(min(d.x, d.y), min(d.z, d.w));

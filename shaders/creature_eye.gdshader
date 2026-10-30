@@ -86,5 +86,5 @@ void fragment() {
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = 0.03;
 	NORMAL = n;
-	EMISSION = emis + vec3(1.0, 0.72, 0.25) * (0.12 + 0.9 * pow(1.0 - ndv, 2.5)) * v_hl;
+	EMISSION = emis + cv_highlight_emission(ndv, v_hl);
 }

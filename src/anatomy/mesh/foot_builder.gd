@@ -94,12 +94,13 @@ static func _paw(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, e: Vector
 		return
 	var n := clampi(digits, 1, 6)
 	var toe_r := r * (0.42 if n <= 4 else 0.34)
+	var biped := int(ctx.model.stats.get("support_count", 4)) <= 2
 	for k in n:
 		var u := (float(k) / float(maxi(n - 1, 1)) - 0.5) if n > 1 else 0.0
 		var ang := u * deg_to_rad(95.0 if not claws else 80.0)
 		var dir := (fwd * cos(ang) + side * sin(ang)).normalized()
-		if claws:
-			# Splayed digits ending in curved claws (cats, birds, theropods).
+		if claws and biped:
+			# Bipeds: long splayed digits ending in curved claws (birds, theropods).
 			var len_k := r * (1.9 - 0.6 * absf(u))
 			var sw := MeshKit.Sweep.new()
 			var rings := 3 if ctx.lod == 0 else 2
@@ -111,9 +112,13 @@ static func _paw(ctx: CreatureBuildContext, a: AnatomyModel.Accessory, e: Vector
 			var tip := start + dir * len_k - up * r * 0.12
 			AppendageBuilder.cone(ctx, tip, (dir + up * 0.35).normalized(), toe_r * 1.6, toe_r * 0.5, AppendageBuilder.CODE_CLAW, slot, a.part_id, bone, 0.6, -up, 1.0)
 		else:
+			# Compact toe beans; quadruped claws peek out in front of them.
 			var tc := center + dir * r * 1.15 + up * (-r * 0.12)
 			var tb := Basis(dir.cross(up).normalized(), up, -dir).orthonormalized()
 			MeshKit.ellipsoid(body, Transform3D(tb, tc), Vector3(toe_r, toe_r * 0.8, toe_r * 1.15), MeshLod.seg(ctx.lod, 10, 5), MeshLod.seg(ctx.lod, 6, 3), st, bi, MeshKit.W1)
+			if claws:
+				var co := tc + dir * toe_r * 0.8 + up * toe_r * 0.1
+				AppendageBuilder.cone(ctx, co, (dir + up * 0.2).normalized(), toe_r * 1.3, toe_r * 0.38, AppendageBuilder.CODE_CLAW, slot, a.part_id, bone, 0.6, -up, 0.9)
 
 
 ## Thin bird-like toes: three spread forward, one (hallux) back, each with a claw.
