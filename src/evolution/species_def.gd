@@ -19,6 +19,11 @@ var description: String = ""
 ## [{day: float, count: int, traits: {trait_id: mean_norm}}], capped
 var history: Array = []
 var stats: Dictionary = {}             # live aggregates (count, mean_age...) — not saved
+# --- Additive extensions (biosim) -------------------------------------------------
+var latin_name: String = ""            # pseudo-Latin binomial
+## Founder genome kept unchanged (template may later track the current centroid).
+var founder: Genome
+var peak_count: float = 0.0            # largest population ever observed
 
 
 func to_dict() -> Dictionary:
@@ -28,6 +33,8 @@ func to_dict() -> Dictionary:
 		"created_day": created_day, "extinct": extinct, "extinct_day": extinct_day,
 		"library_uid": library_uid, "niche": str(niche), "description": description,
 		"history": history.duplicate(true),
+		"latin_name": latin_name, "founder": founder.to_dict() if founder != null and founder != template else {},
+		"peak_count": peak_count,
 	}
 
 
@@ -47,4 +54,8 @@ static func from_dict(d: Dictionary) -> SpeciesDef:
 	s.niche = Serial.sn(d, "niche", &"")
 	s.description = Serial.s(d, "description", "")
 	s.history = Serial.arr(d, "history").duplicate(true)
+	s.latin_name = Serial.s(d, "latin_name", "")
+	var fd := Serial.dict(d, "founder")
+	s.founder = Genome.from_dict(fd) if not fd.is_empty() else s.template
+	s.peak_count = Serial.f(d, "peak_count", 0.0)
 	return s
