@@ -777,7 +777,7 @@ func species_name() -> String:
 		var sd := reg.get_species(individual.species_id)
 		if sd != null:
 			return str(sd.name)
-	return "вид %d" % individual.species_id
+	return "Существо"
 
 
 # --- Status for the HUD -------------------------------------------------------------------------------

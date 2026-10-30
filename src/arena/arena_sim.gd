@@ -36,12 +36,25 @@ func _init(is_headless: bool = true, seed_value: int = 1) -> void:
 	ctx.climate = climate
 	ctx.rng = Rng.new(seed_value + 1)
 	ctx.set_meta(&"headless", headless)
+	_fill_shore_data()
 	plants = make_plants()
 	eco = EcoGrid.new()
 	eco.setup(world, plants, climate, 8.0)
 	ctx.eco = eco
 	ctx.spawn_individual = _on_spawn
 	ctx.agent_died = _on_died
+
+
+## ArenaWorld has no generator pass: derive distance-to-water for the renderers.
+func _fill_shore_data() -> void:
+	var c := ArenaWorld.POND_CENTER
+	for iz in world.res:
+		for ix in world.res:
+			var i := iz * world.res + ix
+			var p := world.grid_to_world(ix, iz)
+			var d := maxf(0.0, Vector2(p.x, p.z).distance_to(c) - ArenaWorld.POND_RADIUS * 0.75)
+			world.water_dist[i] = d if world.water[i] == WorldData.Water.LAND else 0.0
+			world.shore_level[i] = -0.35
 
 
 static func make_plants() -> Array[PlantSpecies]:
@@ -123,12 +136,17 @@ func clear_plants() -> void:
 # --- Simulation ----------------------------------------------------------------------------------
 
 func step(phys_dt: float) -> void:
-	if paused:
-		return
 	var dt := phys_dt * time_scale
-	var bio_dt := dt * Units.BIO_TIME_RATIO
+	step_dt(dt, dt * Units.BIO_TIME_RATIO, true)
+
+
+## Steps with explicit deltas (from a TimeController). `advance_clock`: also advance climate.bio_time.
+func step_dt(dt: float, bio_dt: float, advance_clock: bool = false) -> void:
+	if paused or dt <= 0.0:
+		return
 	ctx.phys_time += dt
-	climate.bio_time += bio_dt
+	if advance_clock:
+		climate.bio_time += bio_dt
 	eco.step(bio_dt)
 	ctx.prune_stimuli(3.0)
 	for a in agent_list.duplicate():
