@@ -19,6 +19,12 @@
   ждёт `await process_frame`, затем `ShotUtil.save_viewport(get_root(), path)`.
   Камеру ставь ПОСЛЕ первого `await process_frame` через `look_at_from_position`.
 - В контейнере нет Vulkan — рендер проверяется только через OpenGL Compatibility.
+- Скрипты, запускаемые через `godot -s`, компилируются ДО появления автозагрузок (`EventBus`, `Game`):
+  делай их «тонкими запускателями», которые после первого кадра `load()`-ят настоящий код
+  (пример: `tools/preview_world_hud.gd` → `tools/preview_world_hud_impl.gd`). В модельном коде
+  вместо `EventBus` используй `Bus.emit()` (`src/core/bus.gd`), в UI-ките — `UIApp`.
+- Сцены: `main_menu` → `creature_editor` / `world` / `test_arena` (переходы через `Game.goto_scene` с payload).
+- Порядок интеграции мира: `src/sim/sim_world.gd` (+ `world_builder.gd`, `agent_manager.gd`, `hud/`).
 
 ## Структура
 
@@ -45,6 +51,11 @@ src/editor/      редактор существ
 src/save/        SaveSystem, Migrations, SpeciesLibrary
 src/performance/ PerformanceManager (уровни A–D, адаптивное качество)
 src/experiment/  контролируемые эксперименты песочницы
+src/sim/         SimWorld (сцена мира), SimState, WorldBuilder, AgentManager, HUD, EventLog, WorldContext
+src/creature/    CreatureAgent (живая особь: восприятие → ИИ → движение → анимация → биология)
+src/arena/       тестовый полигон редактора
+src/audio/       процедурная звуковая атмосфера
+src/tutorial/    шаги и оверлей обучения
 scenes/          .tscn (минимальные: корневой узел + скрипт, UI строится кодом)
 shaders/         .gdshader
 tests/           headless-тесты;  tools/ — скрипты превью/скриншотов/утилиты
