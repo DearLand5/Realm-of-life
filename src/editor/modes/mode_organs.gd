@@ -35,7 +35,8 @@ func _fill_summary() -> void:
 		_summary.add_child(EditorUI.kv(tr("Рот"), "%s, %s" % [PartSchema.enum_label(str(mouth.get("type", ""))), PartSchema.enum_label(str(mouth.get("teeth", "")))]))
 		_summary.add_child(EditorUI.kv(tr("Сила укуса"), "%s Н" % UIFormat.number(float(mouth.get("bite_force", 0.0)), 0)))
 	var w: Dictionary = st.get("weapons", {})
+	var names := {"bite": "укус", "horn": "рога", "claw": "когти", "spike": "шипы", "venom": "яд"}
 	for k in w:
 		if float(w[k]) > 0.0:
-			_summary.add_child(EditorUI.kv(tr("Оружие: %s") % str(k), UIFormat.number(float(w[k]), 1)))
+			_summary.add_child(EditorUI.kv(tr("Оружие: %s") % tr(str(names.get(str(k), str(k)))), UIFormat.number(float(w[k]), 1)))
 	_summary.add_child(EditorUI.kv(tr("Броня"), "%d %%" % int(float(st.get("armor", 0.0)) * 100.0)))
