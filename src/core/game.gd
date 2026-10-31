@@ -5,7 +5,7 @@ extends Node
 ##   * scene transitions with a payload (e.g. which species to edit);
 ##   * persistent user settings and the player's species library.
 
-const VERSION := "0.1.4"
+const VERSION := "0.1.5"
 const SCENE_MENU := "res://scenes/main_menu.tscn"
 const SCENE_EDITOR := "res://scenes/creature_editor.tscn"
 const SCENE_WORLD := "res://scenes/world.tscn"
@@ -42,6 +42,7 @@ func _ready() -> void:
 		settings[k] = loaded[k]
 	apply_settings()
 	_enter_immersive()
+	add_child(AndroidImmersive.new())
 
 
 ## Phones: keep the status and navigation bars hidden (immersive fullscreen);

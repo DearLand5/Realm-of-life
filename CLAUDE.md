@@ -38,6 +38,8 @@
 - На устройстве лог пишется в `user://logs/godot.log` (настройки → «Журнал», копирование); сбой при открытии редактора ловит
   `EditorCrashGuard` (следующее открытие — в облегчённом режиме). Сборку можно открыть сразу в
   редакторе: `game -- --rl-open=editor`.
+- Скрытие системных панелей Android — `AndroidImmersive` (через `AndroidRuntime`, sticky immersive);
+  не полагайся только на полноэкранный режим окна Godot.
 - APK: `tools/export_android.sh` (шаблоны экспорта, Android SDK, ключ через
   `GODOT_ANDROID_KEYSTORE_RELEASE_*`) → `dist/RealmOfLife-<версия>.apk`. Ориентация — только альбомная.
 - Скрипты, запускаемые через `godot -s`, компилируются ДО появления автозагрузок (`EventBus`, `Game`):
