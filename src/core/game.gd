@@ -5,7 +5,7 @@ extends Node
 ##   * scene transitions with a payload (e.g. which species to edit);
 ##   * persistent user settings and the player's species library.
 
-const VERSION := "0.1.3"
+const VERSION := "0.1.4"
 const SCENE_MENU := "res://scenes/main_menu.tscn"
 const SCENE_EDITOR := "res://scenes/creature_editor.tscn"
 const SCENE_WORLD := "res://scenes/world.tscn"
@@ -41,6 +41,19 @@ func _ready() -> void:
 	for k in loaded:
 		settings[k] = loaded[k]
 	apply_settings()
+	_enter_immersive()
+
+
+## Phones: keep the status and navigation bars hidden (immersive fullscreen);
+## Android shows them again after a swipe or when the app comes back.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_enter_immersive()
+
+
+func _enter_immersive() -> void:
+	if OS.has_feature("mobile") and DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 
 func register_service(id: StringName, obj: Object) -> void:

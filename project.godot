@@ -7,7 +7,7 @@ config_version=5
 
 config/name="Realm of Life"
 config/description="3D-песочница жизни, анатомии, экосистем и эволюции"
-config/version="0.1.3"
+config/version="0.1.4"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.4", "Mobile")
 config/icon="res://icon.svg"
@@ -28,6 +28,7 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/size/mode.mobile=3
 window/handheld/orientation=4
 window/energy_saving/keep_screen_on=true
 
