@@ -312,6 +312,7 @@ func _open_menu() -> void:
 	var d := ModalDialog.create(tr("Меню мира"), "", &"menu", ModalDialog.SizeClass.SMALL)
 	d.add_button(&"save", tr("Сохранить"), &"", &"save")
 	d.add_button(&"checkpoint", tr("Контрольная точка"), &"", &"star")
+	d.add_button(&"benchmark", tr("Тест производительности"), &"", &"chart")
 	d.add_button(&"exit", tr("Выйти в меню"), &"DangerButton", &"exit")
 	d.add_button(&"cancel", tr("Продолжить"), &"AccentButton", &"play")
 	d.button_pressed.connect(_on_menu_button)
@@ -326,6 +327,20 @@ func _on_menu_button(id: StringName) -> void:
 			world.save_world("checkpoint:день_%d" % world.state.day())
 		&"exit":
 			world.exit_to_menu()
+		&"benchmark":
+			_run_benchmark()
+
+
+func _run_benchmark() -> void:
+	var b := WorldBenchmark.new()
+	b.world = world
+	world.add_child(b)
+	Game.notify(tr("Тест производительности: около 20 секунд, не трогайте экран"), &"info")
+	b.finished.connect(func(text: String) -> void:
+		b.queue_free()
+		print(text)
+		LogDialog.show_report(tr("Тест производительности"), text))
+	b.run()
 
 
 func _process(delta: float) -> void:

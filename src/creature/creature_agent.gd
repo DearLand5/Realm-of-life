@@ -38,6 +38,9 @@ var bio: BiologySystem
 var animator: ProceduralAnimator = null
 var rng: Rng
 var tier: int = 0
+## Set each frame by AgentManager: false when outside the camera frustum
+## (off-screen agents skip skeletal animation; nobody sees it).
+var on_screen := true
 var lod: int = 0
 var now: float = 0.0
 var food_weights := PackedFloat32Array()
@@ -288,12 +291,14 @@ func sim_update(phys_dt: float, bio_dt: float) -> void:
 		_update_muscles(_muscle_acc)
 		_muscle_acc = 0.0
 	_anim_acc += phys_dt
-	if animator != null and (tier == 0 or _frame % 4 == 0):
+	if animator != null and (on_screen or possessed) and (tier == 0 or _frame % 4 == 0):
 		animator.update(_anim_acc, self)
 		_anim_acc = 0.0
 		_apply_transform()
 	elif animator == null:
 		_anim_acc = 0.0
+	else:
+		_anim_acc = minf(_anim_acc, 0.25)
 	# Biology.
 	if _bio_acc >= BIO_STEP[tier]:
 		_bio_update(_bio_acc)

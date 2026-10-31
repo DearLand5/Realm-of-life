@@ -17,6 +17,9 @@ const ACTIVATION_INTERVAL := 0.5
 const STRAY_CHECK_INTERVAL := 1.0
 const SECTOR_HYSTERESIS := 1.3
 
+## Agents this far outside the view frustum (m) still count as on screen.
+const ON_SCREEN_MARGIN := 4.0
+
 var state: SimState
 var ctx: WorldContext
 var perf: PerformanceManager
@@ -86,10 +89,20 @@ func sim_update(phys_dt: float, bio_dt: float, real_dt: float) -> void:
 		_stray_timer = STRAY_CHECK_INTERVAL
 		_fold_strays()
 		ctx.prune_stimuli(3.0)
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var planes: Array[Plane] = cam.get_frustum() if cam != null else []
 	for i in range(agents.size() - 1, -1, -1):
 		var a := agents[i]
 		if is_instance_valid(a):
+			a.set("on_screen", _in_frustum(planes, (a as Node3D).global_position, ON_SCREEN_MARGIN))
 			a.sim_update(phys_dt, bio_dt)
+
+
+static func _in_frustum(planes: Array[Plane], p: Vector3, margin: float) -> bool:
+	for pl in planes:
+		if pl.distance_to(p) > margin:
+			return false
+	return true
 
 
 func _radius() -> float:

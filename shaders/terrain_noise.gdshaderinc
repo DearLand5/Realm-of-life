@@ -1,5 +1,5 @@
-// Cheap procedural noise shared by world shaders (terrain, water, plants, sky).
-// No textures; works in Mobile and Compatibility renderers.
+// Noise shared by world shaders (terrain, water, plants, sky); works in the
+// Mobile and Compatibility renderers.
 
 float rl_hash12(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -13,21 +13,19 @@ float rl_hash13(vec3 p3) {
 	return fract((p3.x + p3.y) * p3.z);
 }
 
+// Tileable noise textures bound by RlNoise.bind(): one fetch per octave instead
+// of 4 hashes (decisive on phone GPUs). Unit noise cells: 64 per texture.
+uniform sampler2D rl_noise_v : filter_linear_mipmap, repeat_enable;
+uniform sampler2D rl_noise_f : filter_linear_mipmap, repeat_enable;
+
 // Value noise in [0, 1].
 float rl_vnoise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	float a = rl_hash12(i);
-	float b = rl_hash12(i + vec2(1.0, 0.0));
-	float c = rl_hash12(i + vec2(0.0, 1.0));
-	float d = rl_hash12(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+	return texture(rl_noise_v, p * 0.015625).r;
 }
 
 // Three-octave fBm in [0, 1].
 float rl_fbm3(vec2 p) {
-	return rl_vnoise(p) * 0.5 + rl_vnoise(p * 2.03 + vec2(17.1, 3.7)) * 0.3 + rl_vnoise(p * 4.07 + vec2(41.7, 29.3)) * 0.2;
+	return texture(rl_noise_f, p * 0.015625 + vec2(0.27, 0.61)).r;
 }
 
 // Triplanar value noise weighted by the world normal.

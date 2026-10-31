@@ -26,6 +26,10 @@ const PRESETS := {
 	},
 }
 
+## Phones render 3D below native resolution (FSR upscaled; UI stays native):
+## their screens are dense, their GPUs fill-rate bound.
+const MOBILE_RENDER_SCALE := {&"low": 0.6, &"medium": 0.7, &"high": 0.85}
+
 var level: StringName = &"medium"
 var values: Dictionary = PRESETS[&"medium"].duplicate()
 
@@ -41,6 +45,12 @@ func set_level(lvl: StringName) -> void:
 
 func get_value(key: String, fallback = null):
 	return values.get(key, fallback)
+
+
+func render_scale() -> float:
+	if OS.has_feature("mobile"):
+		return float(MOBILE_RENDER_SCALE.get(level, 0.7))
+	return f("render_scale")
 
 
 func f(key: String) -> float:

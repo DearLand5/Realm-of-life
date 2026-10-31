@@ -82,9 +82,32 @@ func _ready() -> void:
 	UITheme.attach(get_tree().root)
 	get_tree().root.size_changed.connect(adapt_now)
 	adapt_now()
+	_sync_perf.call_deferred()
 	var atlas := IconAtlas.ensure_built(self)
 	if atlas != null:
 		atlas.built.connect(_redraw_all)
+
+
+var _perf: PerfOverlay
+var _perf_poll := 0.0
+
+
+func _process(delta: float) -> void:
+	_perf_poll -= delta
+	if _perf_poll <= 0.0:
+		_perf_poll = 1.0
+		_sync_perf()
+
+
+## Shows / hides the FPS readout to match the "show_perf" setting.
+func _sync_perf() -> void:
+	var on := bool(UIApp.setting("show_perf", false))
+	if on and _perf == null:
+		_perf = PerfOverlay.new()
+		root_control.add_child(_perf)
+	elif not on and _perf != null:
+		_perf.queue_free()
+		_perf = null
 
 
 ## Icons already drawn as vectors switch to the atlas on their next redraw.

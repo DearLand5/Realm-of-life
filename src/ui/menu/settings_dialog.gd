@@ -73,6 +73,12 @@ func _build() -> void:
 		b.pressed.connect(func() -> void: _edit_layout(m))
 		flow.add_child(b)
 	col.add_child(flow)
+	# Diagnostics
+	col.add_child(MenuUI.section(tr("Диагностика"), &"info"))
+	col.add_child(_toggle("show_perf", tr("Показывать FPS"), tr("Кадры в секунду и нагрузка процессора и видеокарты"), &"chart"))
+	var log_btn := IconButton.make(&"info", tr("Журнал для отчёта об ошибке"))
+	log_btn.pressed.connect(func() -> void: LogDialog.show_log())
+	col.add_child(log_btn)
 
 
 func _val(key: String, fallback: Variant) -> Variant:

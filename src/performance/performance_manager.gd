@@ -66,7 +66,7 @@ func set_level(lvl: StringName) -> void:
 func _apply_render_settings() -> void:
 	var vp := get_viewport()
 	if vp != null:
-		var sc := profile.f("render_scale")
+		var sc := profile.render_scale()
 		vp.scaling_3d_scale = sc
 		# FSR 1 keeps edges sharp when rendering below native resolution (Forward
 		# Mobile); the Compatibility renderer only supports bilinear.

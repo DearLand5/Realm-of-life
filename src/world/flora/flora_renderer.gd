@@ -100,6 +100,10 @@ func setup(w: WorldData, plant_species: Array[PlantSpecies], biomass_provider: C
 	var q := WorldQuality.level()
 	_range_scale = [0.7, 1.0, 1.35][q]
 	_density_scale = [0.5, 1.0, 1.4][q]
+	if OS.has_feature("mobile"):
+		# Alpha-tested foliage is overdraw-heavy on tile-based phone GPUs.
+		_density_scale *= 0.75
+		_range_scale *= 0.85
 	_shadows = q > WorldQuality.LOW
 	max_chunk_updates_per_frame = [2, 4, 6][q]
 	_dim = int(ceil(w.size / cell_size))
@@ -133,6 +137,7 @@ func _build_materials() -> void:
 	for sp in species:
 		var m := ShaderMaterial.new()
 		m.shader = shader
+		RlNoise.bind(m)
 		m.set_shader_parameter("leaf_color", _v3(sp.color_leaf))
 		m.set_shader_parameter("trunk_color", _v3(sp.color_trunk))
 		m.set_shader_parameter("flower_color", _v3(sp.color_flower))

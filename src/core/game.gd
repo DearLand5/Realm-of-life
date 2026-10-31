@@ -5,7 +5,7 @@ extends Node
 ##   * scene transitions with a payload (e.g. which species to edit);
 ##   * persistent user settings and the player's species library.
 
-const VERSION := "0.1.2"
+const VERSION := "0.1.3"
 const SCENE_MENU := "res://scenes/main_menu.tscn"
 const SCENE_EDITOR := "res://scenes/creature_editor.tscn"
 const SCENE_WORLD := "res://scenes/world.tscn"
@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS := {
 	"camera_sensitivity": 1.0,
 	"invert_y": false,
 	"high_contrast": false,
+	"show_perf": false,
 	"left_handed": false,
 	"music_volume": 0.6,
 	"sfx_volume": 0.8,

@@ -23,9 +23,11 @@ func setup(w: WorldData, shared_climate: ClimateState = null) -> void:
 	var shader: Shader = load(SHADER_PATH)
 	material = ShaderMaterial.new()
 	material.shader = shader
+	RlNoise.bind(material)
 	material.render_priority = 0
 	river_material = ShaderMaterial.new()
 	river_material.shader = shader
+	RlNoise.bind(river_material)
 	river_material.set_shader_parameter("river", true)
 	river_material.render_priority = -1
 	var cells := clampi(nearest_po2(int(round(32.0 / w.cell))), 8, 64)

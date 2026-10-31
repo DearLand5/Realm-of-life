@@ -21,7 +21,7 @@ static var _state: _State = null
 
 class _State:
 	extends RefCounted
-	var memory_cap: int = DEFAULT_MEMORY_CAP
+	var memory_cap: int = DEFAULT_MEMORY_CAP / 3 if OS.has_feature("mobile") else DEFAULT_MEMORY_CAP
 	var entries := {}             # key -> CreatureMeshSet
 	var lru := PackedStringArray()  # least recent first
 	var bytes: int = 0

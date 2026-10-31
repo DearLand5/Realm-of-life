@@ -43,6 +43,7 @@ var skip_meshes := DisplayServer.get_name() == "headless"
 func setup(context: EditorContext) -> void:
 	ctx = context
 	_build_environment()
+	_apply_mobile_rendering()
 	cam = FreeCamera.new()
 	cam.min_distance = 0.6
 	cam.max_distance = 22.0
@@ -64,6 +65,24 @@ func setup(context: EditorContext) -> void:
 	cam.yaw = deg_to_rad(35.0)
 	cam.pitch = deg_to_rad(-22.0)
 	fit_camera(true)
+
+
+## Phones: 3D at 80 % resolution with FSR upscaling (the UI stays native).
+func _apply_mobile_rendering() -> void:
+	if not OS.has_feature("mobile"):
+		return
+	var vp := get_viewport()
+	if vp != null:
+		vp.scaling_3d_scale = 0.8
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR \
+			if RenderingServer.get_current_rendering_method() == "gl_compatibility" else Viewport.SCALING_3D_MODE_FSR
+
+
+## Safe mode after a crash: lighter idle mesh and no shadow map.
+func set_safe_mode(on: bool) -> void:
+	idle_lod = EditorCrashGuard.SAFE_IDLE_LOD if on else IDLE_LOD
+	if _sun != null:
+		_sun.shadow_enabled = not on
 
 
 func _build_environment() -> void:
@@ -178,6 +197,8 @@ func _kick() -> void:
 
 
 func _swap(m: AnatomyModel, lod: int) -> void:
+	var cached := CreatureMeshCache.get_cached(m.morph_key, lod)
+	print("[RL] editor mesh LOD%d, %d vertices" % [lod, cached.vertex_count if cached != null else -1])
 	var v := CreatureVisual.new()
 	v.async_build = false
 	v.setup(m, 7, lod)

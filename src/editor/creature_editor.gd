@@ -130,11 +130,11 @@ func _build() -> void:
 	var safe_mode := EditorCrashGuard.begin()
 	if safe_mode:
 		stage.idle_lod = EditorCrashGuard.SAFE_IDLE_LOD
-		UIApp.notify(tr("Прошлое открытие редактора завершилось сбоем — включён облегчённый режим"), &"warning")
-	# Cleared a few seconds after the first full mesh is on screen.
-	stage.visual_swapped.connect(func() -> void: get_tree().create_timer(3.0).timeout.connect(EditorCrashGuard.done), CONNECT_ONE_SHOT)
 	add_child(stage)
 	stage.setup(ctx)
+	if safe_mode:
+		stage.set_safe_mode(true)
+		LogDialog.show_log.call_deferred(tr("Прошлый сеанс редактора завершился сбоем. Редактор открыт в облегчённом режиме. Пожалуйста, скопируйте журнал и пришлите разработчику."))
 	if _pending_uid != "":
 		doc.uid = _pending_uid
 	doc.dirty = _pending_dirty
@@ -293,6 +293,7 @@ func _build_test_panel() -> void:
 # --- Layout -------------------------------------------------------------------------------------
 
 func _exit_tree() -> void:
+	EditorCrashGuard.done()
 	if ctx != null:
 		ctx.shutdown()
 
@@ -302,6 +303,10 @@ func _notification(what: int) -> void:
 		_queue_layout()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_on_back()
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		EditorCrashGuard.done()      # sent to background: a later kill is not a crash
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		EditorCrashGuard.begin()
 
 
 func _queue_layout() -> void:

@@ -54,6 +54,7 @@ func setup(w: WorldData, shared_climate: ClimateState = null) -> void:
 	_attrs = TerrainAttributes.build(w)
 	material = ShaderMaterial.new()
 	material.shader = load(SHADER_PATH)
+	RlNoise.bind(material)
 	material.set_shader_parameter("sea_level", w.sea_level)
 	_count = int(ceil(float(w.res - 1) / float(chunk_cells)))
 	for cz in _count:
@@ -128,7 +129,10 @@ func _build(c: TerrainChunk) -> void:
 	var step: int = LOD_STEPS[lod]
 	var skirt := 1.5 + world.cell * float(step) * 1.5
 	c.mi.mesh = TerrainMesher.build_chunk(world, _attrs, c.x0, c.z0, chunk_cells, step, skirt)
-	c.mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if lod < 2 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Phones: the terrain only receives shadows (casting re-renders all of it
+	# into the shadow map every frame for little visible gain).
+	var casts := lod < 2 and not OS.has_feature("mobile")
+	c.mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	c.lod = lod
 
 

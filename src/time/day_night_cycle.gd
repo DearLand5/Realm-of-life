@@ -44,6 +44,11 @@ func _build() -> void:
 	sun.shadow_enabled = q > WorldQuality.LOW
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q < WorldQuality.HIGH else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = [40.0, 70.0, 140.0][q]
+	if OS.has_feature("mobile"):
+		# Phones: a single shadow cascade near the camera (each cascade is a
+		# full extra render of every caster).
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		sun.directional_shadow_max_distance = [30.0, 45.0, 60.0][q]
 	sun.directional_shadow_blend_splits = q == WorldQuality.HIGH
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.2
@@ -56,6 +61,7 @@ func _build() -> void:
 	add_child(moon)
 	sky_material = ShaderMaterial.new()
 	sky_material.shader = load(SKY_SHADER)
+	RlNoise.bind(sky_material)
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	sky.radiance_size = Sky.RADIANCE_SIZE_32

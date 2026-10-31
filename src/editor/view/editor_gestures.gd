@@ -32,7 +32,9 @@ func setup(c: EditorContext, s: EditorStage, h: HandleOverlay, surface: Control)
 	rec.drag_started.connect(_on_drag_started)
 	rec.drag.connect(_on_drag)
 	rec.drag_ended.connect(_on_drag_ended)
-	rec.two_finger_started.connect(func(_c: Vector2) -> void: _finish_edit())
+	rec.two_finger_started.connect(func(_c: Vector2) -> void:
+		print("[RL] editor two-finger camera")
+		_finish_edit())
 	rec.pinch.connect(func(f: float, p: Vector2) -> void: stage.cam.zoom(f, p))
 	rec.two_finger_drag.connect(func(rel: Vector2, _p: Vector2) -> void: stage.cam.pan(rel))
 	rec.two_finger_rotate.connect(func(a: float, _p: Vector2) -> void: stage.cam.rotate_yaw(a))
@@ -87,6 +89,7 @@ func _on_long_press(pos: Vector2) -> void:
 
 func _on_drag_started(pos: Vector2, after_long_press: bool) -> void:
 	_mode = &"orbit"
+	print("[RL] editor drag at %s" % pos)
 	var hid := handles.hit(pos)
 	if hid != "" and handles.begin_drag(hid, pos):
 		_mode = &"handle"
